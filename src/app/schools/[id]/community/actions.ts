@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { checkContent } from "@/lib/moderation";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -93,6 +94,8 @@ export async function createSchoolPost(schoolId: string, formData: FormData) {
     redirect(`/schools/${schoolId}/community/ask?error=missing_fields`);
   }
 
+  const moderation = await checkContent(`${title}\n\n${body}`);
+
   const { data, error } = await supabase
     .from("posts")
     .insert({
@@ -102,6 +105,7 @@ export async function createSchoolPost(schoolId: string, formData: FormData) {
       title,
       body,
       is_anonymous: isAnonymous,
+      status: moderation.flagged ? "pending_review" : "published",
     })
     .select("id")
     .single();

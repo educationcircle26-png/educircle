@@ -14,7 +14,7 @@ export default async function QuestionPage({
   const { data: post } = await supabase
     .from("posts_with_author")
     .select(
-      "id, title, body, created_at, is_anonymous, author_display_name",
+      "id, title, body, created_at, is_anonymous, author_display_name, author_id, status",
     )
     .eq("id", id)
     .single();
@@ -26,7 +26,7 @@ export default async function QuestionPage({
   const { data: comments } = await supabase
     .from("comments_with_author")
     .select(
-      "id, body, created_at, is_anonymous, author_display_name",
+      "id, body, created_at, is_anonymous, author_display_name, author_id, status",
     )
     .eq("post_id", id)
     .order("created_at", { ascending: true });
@@ -41,6 +41,12 @@ export default async function QuestionPage({
     <>
       <AppHeader />
       <main className="mx-auto max-w-2xl px-6 py-10">
+        {post.status !== "published" && post.author_id === user?.id && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            This post is under review and only visible to you until a
+            moderator approves it.
+          </p>
+        )}
         <h1 className="text-2xl font-bold text-neutral-900">{post.title}</h1>
         <p className="mt-1 text-xs text-neutral-400">
           {post.is_anonymous
@@ -66,6 +72,9 @@ export default async function QuestionPage({
                 {comment.is_anonymous
                   ? "Anonymous parent"
                   : comment.author_display_name || "A parent"}
+                {comment.status !== "published" &&
+                  comment.author_id === user?.id &&
+                  " · under review, only visible to you"}
               </p>
             </div>
           ))}

@@ -108,7 +108,6 @@ export default async function SchoolCommunityPage({
 
             <form
               action={joinWithDocumentForSchool}
-              encType="multipart/form-data"
               className="rounded-xl border border-neutral-200 p-4"
             >
               <h2 className="font-medium text-neutral-900">
