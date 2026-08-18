@@ -53,13 +53,13 @@ export default async function SchoolPage({
 
         <div className="mt-8 rounded-xl border border-dashed border-neutral-300 p-6 text-center">
           <p className="text-neutral-600">
-            No parent conversations about this school yet.
+            Join the private parent community for this school.
           </p>
           <Link
-            href="/network/ask"
+            href={`/schools/${school.id}/community`}
             className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white"
           >
-            Ask parents about this school
+            View school community
           </Link>
         </div>
       </main>
