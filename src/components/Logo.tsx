@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export function LogoMark({ className = "h-8 w-6" }: { className?: string }) {
   return (
     <svg viewBox="0 0 96 128" className={className} aria-hidden="true">
@@ -21,9 +23,15 @@ export function LogoMark({ className = "h-8 w-6" }: { className?: string }) {
 
 export function Logo({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <LogoMark />
-      <span className="text-xl font-bold text-neutral-900">EduCircle</span>
+    <div className={`flex items-center ${className}`}>
+      <Image
+        src="/brand/educircle-logo.png"
+        alt="EduCircle"
+        width={250}
+        height={230}
+        priority
+        className="h-12 w-auto"
+      />
     </div>
   );
 }
