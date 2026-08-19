@@ -26,7 +26,11 @@ export async function AppHeader() {
         >
           Ask a Question
         </Link>
-        {!user && (
+        {user ? (
+          <Link href="/profile" className="text-sm text-neutral-700">
+            My Profile
+          </Link>
+        ) : (
           <Link href="/login" className="text-sm text-neutral-700">
             Log in
           </Link>
