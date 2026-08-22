@@ -2,12 +2,24 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/AppHeader";
 
-export default async function SchoolsPage() {
+export default async function SchoolsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
   const supabase = await createClient();
-  const { data: schools } = await supabase
+
+  let query = supabase
     .from("schools")
     .select("id, name, area, curriculum, min_year, max_year")
     .order("name");
+
+  if (q) {
+    query = query.or(`name.ilike.%${q}%,area.ilike.%${q}%`);
+  }
+
+  const { data: schools } = await query;
 
   return (
     <>
@@ -20,7 +32,23 @@ export default async function SchoolsPage() {
           Real information, no rankings, no sponsored listings.
         </p>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+        <form action="/schools" className="mt-6">
+          <input
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Search by school name or area..."
+            className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+          />
+        </form>
+
+        {q && (
+          <p className="mt-4 text-sm text-neutral-500">
+            {schools?.length ?? 0} result{schools?.length === 1 ? "" : "s"}{" "}
+            for &ldquo;{q}&rdquo;
+          </p>
+        )}
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {schools?.map((school) => (
             <Link
               key={school.id}
@@ -46,6 +74,9 @@ export default async function SchoolsPage() {
               </div>
             </Link>
           ))}
+          {schools?.length === 0 && (
+            <p className="text-sm text-neutral-500">No schools found.</p>
+          )}
         </div>
       </main>
     </>
