@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/AppHeader";
+import { SCHOOL_CATEGORIES } from "@/lib/schoolCategories";
 import { createSchoolPost } from "../actions";
 
 export default async function AskSchoolCommunityPage({
@@ -71,6 +72,22 @@ export default async function AskSchoolCommunityPage({
             placeholder="Add some details..."
             className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
           />
+          <div>
+            <label className="text-sm font-medium text-neutral-700">
+              Category
+            </label>
+            <select
+              name="category"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+            >
+              <option value="">Home (general)</option>
+              {SCHOOL_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <label className="flex items-center justify-between rounded-xl border border-neutral-200 px-4 py-3">
             <span className="text-sm text-neutral-700">Post anonymously</span>
             <input type="checkbox" name="is_anonymous" className="h-4 w-4" />

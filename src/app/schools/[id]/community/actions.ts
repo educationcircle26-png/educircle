@@ -89,6 +89,7 @@ export async function createSchoolPost(schoolId: string, formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const isAnonymous = formData.get("is_anonymous") === "on";
+  const category = String(formData.get("category") ?? "").trim();
 
   if (!title || !body) {
     redirect(`/schools/${schoolId}/community/ask?error=missing_fields`);
@@ -104,6 +105,7 @@ export async function createSchoolPost(schoolId: string, formData: FormData) {
       type: "question",
       title,
       body,
+      tags: category ? [category] : [],
       is_anonymous: isAnonymous,
       status: moderation.flagged ? "pending_review" : "published",
     })
