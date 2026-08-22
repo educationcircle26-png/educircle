@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/AppHeader";
-import { createComment, toggleSave } from "../actions";
+import { createComment, toggleCommentReaction, toggleSave } from "../actions";
 
 function VerifiedBadge() {
   return (
@@ -15,6 +15,63 @@ function VerifiedBadge() {
         d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z"
       />
     </svg>
+  );
+}
+
+function TopAnswerBadge() {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-violet-600">
+        <path
+          fill="currentColor"
+          d="M12 2l2.9 6 6.6.9-4.8 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5-4.8-4.6 6.6-.9z"
+        />
+      </svg>
+      <span className="text-xs font-extrabold tracking-wide text-violet-700">
+        TOP ANSWER
+      </span>
+    </div>
+  );
+}
+
+function VoteButton({
+  count,
+  voted,
+  action,
+}: {
+  count: number;
+  voted: boolean;
+  action: () => Promise<void>;
+}) {
+  return (
+    <form action={action} className="flex shrink-0 flex-col items-center">
+      <button
+        type="submit"
+        aria-label={voted ? "Remove helpful vote" : "Mark as helpful"}
+        className={`flex flex-col items-center gap-0.5 rounded-lg px-1 pt-0.5 pb-1 transition hover:text-violet-600 ${
+          voted ? "text-violet-600" : "text-neutral-400"
+        }`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-[18px] w-[18px]"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+        <span
+          className={`text-sm font-extrabold ${
+            voted ? "text-violet-700" : "text-neutral-700"
+          }`}
+        >
+          {count}
+        </span>
+      </button>
+    </form>
   );
 }
 
@@ -41,7 +98,7 @@ export default async function QuestionPage({
   const { data: comments } = await supabase
     .from("comments_with_author")
     .select(
-      "id, body, created_at, is_anonymous, author_display_name, author_id, status",
+      "id, body, created_at, is_anonymous, author_display_name, author_id, status, parent_comment_id",
     )
     .eq("post_id", id)
     .order("created_at", { ascending: true });
@@ -63,6 +120,41 @@ export default async function QuestionPage({
     (verifiedMemberships ?? []).map((m) => m.user_id),
   );
 
+  const commentIds = (comments ?? []).map((c) => c.id);
+  const voteCounts = new Map<string, number>();
+  const myVotes = new Set<string>();
+  if (commentIds.length > 0) {
+    const { data: reactions } = await supabase
+      .from("comment_reactions")
+      .select("comment_id, user_id")
+      .in("comment_id", commentIds);
+    for (const r of reactions ?? []) {
+      voteCounts.set(r.comment_id, (voteCounts.get(r.comment_id) ?? 0) + 1);
+      if (user && r.user_id === user.id) myVotes.add(r.comment_id);
+    }
+  }
+
+  const topLevel = (comments ?? []).filter((c) => !c.parent_comment_id);
+  const repliesByParent = new Map<string, typeof topLevel>();
+  for (const c of comments ?? []) {
+    if (c.parent_comment_id) {
+      const list = repliesByParent.get(c.parent_comment_id) ?? [];
+      list.push(c);
+      repliesByParent.set(c.parent_comment_id, list);
+    }
+  }
+
+  const sortedTopLevel = [...topLevel].sort((a, b) => {
+    const va = voteCounts.get(a.id) ?? 0;
+    const vb = voteCounts.get(b.id) ?? 0;
+    if (va !== vb) return vb - va;
+    return a.created_at < b.created_at ? -1 : 1;
+  });
+  const topAnswerId =
+    sortedTopLevel.length > 0 && (voteCounts.get(sortedTopLevel[0].id) ?? 0) > 0
+      ? sortedTopLevel[0].id
+      : null;
+
   let isSaved = false;
   if (user) {
     const { data: saved } = await supabase
@@ -76,6 +168,16 @@ export default async function QuestionPage({
 
   const createCommentForPost = createComment.bind(null, id);
   const toggleSaveForPost = toggleSave.bind(null, id);
+
+  function timeAgo(dateStr: string) {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 60) return `${Math.max(mins, 1)}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
 
   return (
     <>
@@ -127,29 +229,145 @@ export default async function QuestionPage({
           {post.body}
         </p>
 
-        <h2 className="mt-10 text-sm font-semibold text-neutral-900">
-          {comments?.length || 0}{" "}
-          {comments?.length === 1 ? "answer" : "answers"}
-        </h2>
-        <div className="mt-3 flex flex-col gap-3">
-          {comments?.map((comment) => (
-            <div
-              key={comment.id}
-              className="rounded-xl border border-neutral-200 p-4"
-            >
-              <p className="text-neutral-800">{comment.body}</p>
-              <p className="mt-2 flex items-center gap-1 text-xs text-neutral-400">
-                {comment.is_anonymous
-                  ? "Anonymous parent"
-                  : comment.author_display_name || "A parent"}
-                {!comment.is_anonymous &&
-                  verifiedIds.has(comment.author_id) && <VerifiedBadge />}
-                {comment.status !== "published" &&
-                  comment.author_id === user?.id &&
-                  " · under review, only visible to you"}
-              </p>
-            </div>
-          ))}
+        <div className="mt-10 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-900">
+            {comments?.length || 0}{" "}
+            {comments?.length === 1 ? "answer" : "answers"}
+          </h2>
+          {(voteCounts.size > 0 || sortedTopLevel.length > 0) && (
+            <span className="text-xs text-neutral-500">
+              Sorted by most helpful
+            </span>
+          )}
+        </div>
+        <div className="mt-3 flex flex-col gap-4">
+          {sortedTopLevel.map((comment) => {
+            const isTop = comment.id === topAnswerId;
+            const replies = repliesByParent.get(comment.id) ?? [];
+            const replyToComment = createComment.bind(null, id);
+            return (
+              <div
+                key={comment.id}
+                className={
+                  isTop
+                    ? "rounded-2xl border-[1.5px] border-violet-200 bg-violet-50/60 p-5"
+                    : "rounded-xl border border-neutral-200 p-4"
+                }
+              >
+                {isTop && <TopAnswerBadge />}
+                <div className="flex gap-3.5">
+                  <VoteButton
+                    count={voteCounts.get(comment.id) ?? 0}
+                    voted={myVotes.has(comment.id)}
+                    action={toggleCommentReaction.bind(null, id, comment.id)}
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm leading-relaxed text-neutral-800">
+                      {comment.body}
+                    </p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400">
+                      <span className="font-semibold text-neutral-700">
+                        {comment.is_anonymous
+                          ? "Anonymous parent"
+                          : comment.author_display_name || "A parent"}
+                      </span>
+                      {!comment.is_anonymous &&
+                        verifiedIds.has(comment.author_id) && (
+                          <VerifiedBadge />
+                        )}
+                      <span>· {timeAgo(comment.created_at)}</span>
+                      {comment.status !== "published" &&
+                        comment.author_id === user?.id && (
+                          <span>· under review, only visible to you</span>
+                        )}
+                      {user && (
+                        <details className="ml-1">
+                          <summary className="cursor-pointer list-none text-xs font-bold text-violet-600 hover:text-violet-800">
+                            Reply
+                          </summary>
+                          <form
+                            action={replyToComment}
+                            className="mt-2 flex flex-col gap-2"
+                          >
+                            <input
+                              type="hidden"
+                              name="parent_comment_id"
+                              value={comment.id}
+                            />
+                            <textarea
+                              name="body"
+                              required
+                              rows={2}
+                              placeholder="Write a reply..."
+                              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-violet-600"
+                            />
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-1.5 text-xs text-neutral-600">
+                                <input
+                                  type="checkbox"
+                                  name="is_anonymous"
+                                  className="h-3.5 w-3.5"
+                                />
+                                Reply anonymously
+                              </label>
+                              <button
+                                type="submit"
+                                className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+                              >
+                                Post
+                              </button>
+                            </div>
+                          </form>
+                        </details>
+                      )}
+                    </div>
+
+                    {replies.length > 0 && (
+                      <div className="mt-3 flex flex-col gap-3 border-l-2 border-neutral-100 pl-4">
+                        {replies.map((reply) => (
+                          <div key={reply.id} className="flex gap-3">
+                            <VoteButton
+                              count={voteCounts.get(reply.id) ?? 0}
+                              voted={myVotes.has(reply.id)}
+                              action={toggleCommentReaction.bind(
+                                null,
+                                id,
+                                reply.id,
+                              )}
+                            />
+                            <div className="flex-1">
+                              <p className="text-[13px] leading-relaxed text-neutral-700">
+                                {reply.body}
+                              </p>
+                              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-neutral-400">
+                                <span className="font-semibold text-neutral-600">
+                                  {reply.is_anonymous
+                                    ? "Anonymous parent"
+                                    : reply.author_display_name ||
+                                      "A parent"}
+                                </span>
+                                {!reply.is_anonymous &&
+                                  verifiedIds.has(reply.author_id) && (
+                                    <VerifiedBadge />
+                                  )}
+                                <span>· {timeAgo(reply.created_at)}</span>
+                                {reply.status !== "published" &&
+                                  reply.author_id === user?.id && (
+                                    <span>
+                                      · under review, only visible to you
+                                    </span>
+                                  )}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {user ? (
