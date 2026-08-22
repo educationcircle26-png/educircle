@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/AppHeader";
-import { createComment, toggleCommentReaction, toggleSave } from "../actions";
+import {
+  createComment,
+  toggleCommentReaction,
+  toggleSave,
+  votePoll,
+} from "../actions";
 
 function VerifiedBadge() {
   return (
@@ -86,7 +91,7 @@ export default async function QuestionPage({
   const { data: post } = await supabase
     .from("posts_with_author")
     .select(
-      "id, title, body, created_at, is_anonymous, author_display_name, author_id, status",
+      "id, title, body, type, metadata, created_at, is_anonymous, author_display_name, author_id, status",
     )
     .eq("id", id)
     .single();
@@ -95,6 +100,29 @@ export default async function QuestionPage({
     notFound();
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isPoll = post.type === "poll";
+  const pollOptions: string[] = isPoll
+    ? ((post.metadata as { options?: string[] } | null)?.options ?? [])
+    : [];
+  let pollVoteCounts: number[] = [];
+  let myPollVoteIndex: number | null = null;
+  if (isPoll) {
+    const { data: pollVotes } = await supabase
+      .from("poll_votes")
+      .select("user_id, option_index")
+      .eq("post_id", id);
+    pollVoteCounts = pollOptions.map(
+      (_, i) => (pollVotes ?? []).filter((v) => v.option_index === i).length,
+    );
+    const mine = (pollVotes ?? []).find((v) => v.user_id === user?.id);
+    myPollVoteIndex = mine ? mine.option_index : null;
+  }
+  const pollTotalVotes = pollVoteCounts.reduce((a, b) => a + b, 0);
+
   const { data: comments } = await supabase
     .from("comments_with_author")
     .select(
@@ -102,10 +130,6 @@ export default async function QuestionPage({
     )
     .eq("post_id", id)
     .order("created_at", { ascending: true });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const authorIds = [
     post.author_id,
@@ -225,9 +249,66 @@ export default async function QuestionPage({
             <VerifiedBadge />
           )}
         </p>
-        <p className="mt-4 whitespace-pre-wrap text-neutral-800">
-          {post.body}
-        </p>
+        {post.body && (
+          <p className="mt-4 whitespace-pre-wrap text-neutral-800">
+            {post.body}
+          </p>
+        )}
+
+        {isPoll && (
+          <div className="mt-5 flex flex-col gap-2.5">
+            {pollOptions.map((option, i) => {
+              const count = pollVoteCounts[i] ?? 0;
+              const pct =
+                pollTotalVotes > 0
+                  ? Math.round((count / pollTotalVotes) * 100)
+                  : 0;
+              const isMine = myPollVoteIndex === i;
+              return (
+                <form
+                  key={i}
+                  action={votePoll.bind(null, id, i)}
+                  className="block"
+                >
+                  <button
+                    type="submit"
+                    className={`relative w-full overflow-hidden rounded-xl border px-4 py-3 text-left text-sm transition ${
+                      isMine
+                        ? "border-violet-400 bg-violet-50"
+                        : "border-neutral-200 hover:border-violet-300"
+                    }`}
+                  >
+                    {myPollVoteIndex !== null && (
+                      <span
+                        className="absolute inset-y-0 left-0 bg-violet-100"
+                        style={{ width: `${pct}%` }}
+                      />
+                    )}
+                    <span className="relative flex items-center justify-between gap-3">
+                      <span
+                        className={`font-medium ${isMine ? "text-violet-800" : "text-neutral-800"}`}
+                      >
+                        {option}
+                      </span>
+                      {myPollVoteIndex !== null && (
+                        <span className="shrink-0 text-xs font-bold text-neutral-600">
+                          {pct}% · {count}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </form>
+              );
+            })}
+            <p className="text-xs text-neutral-400">
+              {pollTotalVotes} {pollTotalVotes === 1 ? "vote" : "votes"}
+              {myPollVoteIndex === null && user
+                ? " · tap an option to vote"
+                : ""}
+              {!user ? " · log in to vote" : ""}
+            </p>
+          </div>
+        )}
 
         <div className="mt-10 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-neutral-900">

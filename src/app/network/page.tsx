@@ -6,7 +6,9 @@ export default async function NetworkPage() {
   const supabase = await createClient();
   const { data: posts } = await supabase
     .from("posts_with_author")
-    .select("id, title, body, created_at, is_anonymous, author_display_name")
+    .select(
+      "id, title, body, type, created_at, is_anonymous, author_display_name",
+    )
     .is("school_id", null)
     .eq("status", "published")
     .order("created_at", { ascending: false })
@@ -31,12 +33,21 @@ export default async function NetworkPage() {
                 href={`/network/${post.id}`}
                 className="rounded-xl border border-neutral-200 p-4 hover:border-violet-400"
               >
-                <h2 className="font-semibold text-neutral-900">
-                  {post.title}
-                </h2>
-                <p className="mt-1 line-clamp-2 text-sm text-neutral-600">
-                  {post.body}
-                </p>
+                <div className="flex items-center gap-2">
+                  {post.type === "poll" && (
+                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                      POLL
+                    </span>
+                  )}
+                  <h2 className="font-semibold text-neutral-900">
+                    {post.title}
+                  </h2>
+                </div>
+                {post.body && (
+                  <p className="mt-1 line-clamp-2 text-sm text-neutral-600">
+                    {post.body}
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-neutral-400">
                   {post.is_anonymous
                     ? "Anonymous parent"

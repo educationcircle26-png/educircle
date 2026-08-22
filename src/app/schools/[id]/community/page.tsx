@@ -219,7 +219,7 @@ export default async function SchoolCommunityPage({
   let postsQuery = supabase
     .from("posts_with_author")
     .select(
-      "id, title, body, created_at, is_anonymous, author_display_name, author_id, tags",
+      "id, title, body, type, created_at, is_anonymous, author_display_name, author_id, tags",
     )
     .eq("school_id", id)
     .eq("status", "published")
@@ -391,17 +391,28 @@ export default async function SchoolCommunityPage({
                       href={`/network/${post.id}`}
                       className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md"
                     >
-                      {tagLabel && (
-                        <span className="mb-2 inline-block rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-semibold text-neutral-600">
-                          {tagLabel}
+                      {(tagLabel || post.type === "poll") && (
+                        <span className="mb-2 flex items-center gap-1.5">
+                          {tagLabel && (
+                            <span className="inline-block rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-semibold text-neutral-600">
+                              {tagLabel}
+                            </span>
+                          )}
+                          {post.type === "poll" && (
+                            <span className="inline-block rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700">
+                              POLL
+                            </span>
+                          )}
                         </span>
                       )}
                       <h2 className="font-semibold text-slate-900">
                         {post.title}
                       </h2>
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                        {post.body}
-                      </p>
+                      {post.body && (
+                        <p className="mt-1 line-clamp-2 text-sm text-slate-600">
+                          {post.body}
+                        </p>
+                      )}
                       <p className="mt-2 flex items-center gap-1 text-xs text-slate-400">
                         {post.is_anonymous
                           ? "Anonymous parent"

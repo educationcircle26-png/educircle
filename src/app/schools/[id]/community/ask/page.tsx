@@ -66,12 +66,44 @@ export default async function AskSchoolCommunityPage({
           />
           <textarea
             name="body"
-            required
             rows={5}
             maxLength={500}
             placeholder="Add some details..."
             className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
           />
+
+          <div className="rounded-xl border border-dashed border-neutral-300 p-4">
+            <p className="text-sm font-medium text-neutral-800">
+              Turn this into a poll (optional)
+            </p>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Fill in at least 2 options and parents will vote instead of
+              writing answers.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <input
+                name="option_1"
+                placeholder="Option 1"
+                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
+              />
+              <input
+                name="option_2"
+                placeholder="Option 2"
+                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
+              />
+              <input
+                name="option_3"
+                placeholder="Option 3 (optional)"
+                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
+              />
+              <input
+                name="option_4"
+                placeholder="Option 4 (optional)"
+                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="text-sm font-medium text-neutral-700">
               Category

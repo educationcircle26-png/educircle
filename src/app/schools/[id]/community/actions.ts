@@ -90,8 +90,12 @@ export async function createSchoolPost(schoolId: string, formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   const isAnonymous = formData.get("is_anonymous") === "on";
   const category = String(formData.get("category") ?? "").trim();
+  const options = [1, 2, 3, 4]
+    .map((i) => String(formData.get(`option_${i}`) ?? "").trim())
+    .filter(Boolean);
+  const isPoll = options.length >= 2;
 
-  if (!title || !body) {
+  if (!title || (!body && !isPoll)) {
     redirect(`/schools/${schoolId}/community/ask?error=missing_fields`);
   }
 
@@ -102,10 +106,11 @@ export async function createSchoolPost(schoolId: string, formData: FormData) {
     .insert({
       author_id: user.id,
       school_id: schoolId,
-      type: "question",
+      type: isPoll ? "poll" : "question",
       title,
       body,
       tags: category ? [category] : [],
+      metadata: isPoll ? { options } : {},
       is_anonymous: isAnonymous,
       status: moderation.flagged ? "pending_review" : "published",
     })

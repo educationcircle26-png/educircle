@@ -17,8 +17,12 @@ export async function createQuestion(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const isAnonymous = formData.get("is_anonymous") === "on";
+  const options = [1, 2, 3, 4]
+    .map((i) => String(formData.get(`option_${i}`) ?? "").trim())
+    .filter(Boolean);
+  const isPoll = options.length >= 2;
 
-  if (!title || !body) {
+  if (!title || (!body && !isPoll)) {
     redirect("/network/ask?error=missing_fields");
   }
 
@@ -29,9 +33,10 @@ export async function createQuestion(formData: FormData) {
     .insert({
       author_id: user.id,
       school_id: null,
-      type: "question",
+      type: isPoll ? "poll" : "question",
       title,
       body,
+      metadata: isPoll ? { options } : {},
       is_anonymous: isAnonymous,
       status: moderation.flagged ? "pending_review" : "published",
     })
@@ -43,6 +48,26 @@ export async function createQuestion(formData: FormData) {
   }
 
   redirect(`/network/${data.id}`);
+}
+
+export async function votePoll(postId: string, optionIndex: number) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  await supabase
+    .from("poll_votes")
+    .upsert(
+      { post_id: postId, user_id: user.id, option_index: optionIndex },
+      { onConflict: "post_id,user_id" },
+    );
+
+  redirect(`/network/${postId}`);
 }
 
 export async function createComment(postId: string, formData: FormData) {
