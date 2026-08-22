@@ -56,6 +56,10 @@ type Answers = {
   situation: string;
 };
 
+type School = { id: string; name: string };
+
+const TOTAL_STEPS = 6;
+
 function toggle(list: string[], value: string, max?: number) {
   if (list.includes(value)) return list.filter((v) => v !== value);
   if (max && list.length >= max) return list;
@@ -86,7 +90,13 @@ function Chip({
   );
 }
 
-export default function OnboardingWizard({ userId }: { userId: string }) {
+export default function OnboardingWizard({
+  userId,
+  schools,
+}: {
+  userId: string;
+  schools: School[];
+}) {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -97,13 +107,19 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
     priorities: [],
     situation: "",
   });
+  const [child, setChild] = useState({
+    first_name: "",
+    school_id: "",
+    academic_year: "",
+  });
 
   const canContinue =
     (step === 1 && answers.areas.length > 0) ||
     (step === 2 && answers.year !== "") ||
     (step === 3 && answers.curricula.length > 0) ||
     (step === 4 && answers.priorities.length > 0) ||
-    (step === 5 && answers.situation !== "");
+    (step === 5 && answers.situation !== "") ||
+    step === 6;
 
   async function finish() {
     setSaving(true);
@@ -112,6 +128,14 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
       .from("profiles")
       .update({ search_preferences: answers })
       .eq("id", userId);
+    if (child.first_name.trim()) {
+      await supabase.from("children").insert({
+        parent_id: userId,
+        first_name: child.first_name.trim(),
+        school_id: child.school_id || null,
+        academic_year: child.academic_year.trim() || null,
+      });
+    }
     setSaving(false);
     setDone(true);
   }
@@ -153,7 +177,7 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
           </button>
         )}
         <div className="flex flex-1 gap-1">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((i) => (
             <div
               key={i}
               className={`h-1.5 flex-1 rounded-full ${
@@ -162,7 +186,9 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
             />
           ))}
         </div>
-        <span className="text-xs text-neutral-500">{step} of 5</span>
+        <span className="text-xs text-neutral-500">
+          {step} of {TOTAL_STEPS}
+        </span>
       </div>
 
       {step === 1 && (
@@ -290,13 +316,86 @@ export default function OnboardingWizard({ userId }: { userId: string }) {
         </div>
       )}
 
+      {step === 6 && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <h1 className="text-lg font-semibold text-neutral-900">
+              6. Add your child (optional)
+            </h1>
+            <p className="text-sm text-neutral-500">
+              This connects you to their school&apos;s community. You can
+              skip this and add it later from your profile.
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-neutral-700">
+              First name
+            </label>
+            <input
+              value={child.first_name}
+              onChange={(e) =>
+                setChild((c) => ({ ...c, first_name: e.target.value }))
+              }
+              placeholder="Omar"
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-neutral-700">
+              School
+            </label>
+            <select
+              value={child.school_id}
+              onChange={(e) =>
+                setChild((c) => ({ ...c, school_id: e.target.value }))
+              }
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+            >
+              <option value="">Not listed / not decided yet</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-neutral-700">
+              Year / grade
+            </label>
+            <input
+              value={child.academic_year}
+              onChange={(e) =>
+                setChild((c) => ({ ...c, academic_year: e.target.value }))
+              }
+              placeholder={answers.year || "Year 2"}
+              className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+            />
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
         disabled={!canContinue || saving}
-        onClick={() => (step < 5 ? setStep(step + 1) : finish())}
+        onClick={() => {
+          if (step === 5) {
+            setChild((c) => ({
+              ...c,
+              academic_year: c.academic_year || answers.year,
+            }));
+          }
+          step < TOTAL_STEPS ? setStep(step + 1) : finish();
+        }}
         className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-700 disabled:opacity-40"
       >
-        {step < 5 ? "Continue" : saving ? "Saving..." : "Find parents & schools"}
+        {step < TOTAL_STEPS
+          ? "Continue"
+          : saving
+            ? "Saving..."
+            : child.first_name.trim()
+              ? "Add child & finish"
+              : "Skip & finish"}
       </button>
     </div>
   );

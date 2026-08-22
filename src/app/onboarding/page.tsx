@@ -12,9 +12,14 @@ export default async function OnboardingPage() {
     redirect("/login");
   }
 
+  const { data: schools } = await supabase
+    .from("schools")
+    .select("id, name")
+    .order("name");
+
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-10">
-      <OnboardingWizard userId={user.id} />
+      <OnboardingWizard userId={user.id} schools={schools ?? []} />
     </main>
   );
 }
