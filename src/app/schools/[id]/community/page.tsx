@@ -307,12 +307,20 @@ export default async function SchoolCommunityPage({
                 <path d="M8.5 12.5l2.5 2.5 4.5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <Link
-              href={`/schools/${id}/community/ask`}
-              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
-            >
-              Ask
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/schools/${id}/groups`}
+                className="rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
+              >
+                Groups
+              </Link>
+              <Link
+                href={`/schools/${id}/community/ask`}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
+              >
+                Ask
+              </Link>
+            </div>
           </div>
           <p className="mt-1 text-sm text-slate-500">Parent community</p>
 

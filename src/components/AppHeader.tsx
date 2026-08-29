@@ -8,6 +8,16 @@ export async function AppHeader() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+    isAdmin = !!profile?.is_admin;
+  }
+
   return (
     <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
       <Link href="/network">
@@ -26,6 +36,14 @@ export async function AppHeader() {
         >
           Ask a Question
         </Link>
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white"
+          >
+            Admin
+          </Link>
+        )}
         {user ? (
           <Link href="/profile" className="text-sm text-neutral-700">
             My Profile
