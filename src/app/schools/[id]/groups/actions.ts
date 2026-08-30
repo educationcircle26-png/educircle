@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { checkContent } from "@/lib/moderation";
+import { publishChatMessage } from "@/lib/publish";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -76,19 +76,16 @@ export async function sendMessage(
   groupId: string,
   formData: FormData,
 ) {
-  const { supabase, user } = await requireUser();
+  const { user } = await requireUser();
 
   const body = String(formData.get("body") ?? "").trim();
   if (!body) redirect(`/schools/${schoolId}/groups/${groupId}`);
 
-  const moderation = await checkContent(body);
-
-  await supabase.from("chat_messages").insert({
-    group_id: groupId,
-    author_id: user.id,
-    body,
-    status: moderation.flagged ? "pending_review" : "published",
-  });
+  try {
+    await publishChatMessage({ authorId: user.id, groupId, body });
+  } catch {
+    redirect(`/schools/${schoolId}/groups/${groupId}?error=send_failed`);
+  }
 
   redirect(`/schools/${schoolId}/groups/${groupId}`);
 }

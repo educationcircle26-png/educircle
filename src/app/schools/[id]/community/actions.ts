@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { checkContent } from "@/lib/moderation";
+import { publishPost } from "@/lib/publish";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -99,29 +99,23 @@ export async function createSchoolPost(schoolId: string, formData: FormData) {
     redirect(`/schools/${schoolId}/community/ask?error=missing_fields`);
   }
 
-  const moderation = await checkContent(`${title}\n\n${body}`);
-
-  const { data, error } = await supabase
-    .from("posts")
-    .insert({
-      author_id: user.id,
-      school_id: schoolId,
+  let postId: string;
+  try {
+    postId = await publishPost({
+      authorId: user.id,
+      schoolId,
       type: isPoll ? "poll" : "question",
       title,
       body,
       tags: category ? [category] : [],
       metadata: isPoll ? { options } : {},
-      is_anonymous: isAnonymous,
-      status: moderation.flagged ? "pending_review" : "published",
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
+      isAnonymous,
+    });
+  } catch {
     redirect(`/schools/${schoolId}/community/ask?error=save_failed`);
   }
 
-  redirect(`/network/${data.id}`);
+  redirect(`/network/${postId}`);
 }
 
 export async function reviewMembership(

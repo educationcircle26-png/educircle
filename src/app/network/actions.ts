@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { checkContent } from "@/lib/moderation";
+import { publishComment, publishPost } from "@/lib/publish";
 
 export async function createQuestion(formData: FormData) {
   const supabase = await createClient();
@@ -26,28 +26,22 @@ export async function createQuestion(formData: FormData) {
     redirect("/network/ask?error=missing_fields");
   }
 
-  const moderation = await checkContent(`${title}\n\n${body}`);
-
-  const { data, error } = await supabase
-    .from("posts")
-    .insert({
-      author_id: user.id,
-      school_id: null,
+  let postId: string;
+  try {
+    postId = await publishPost({
+      authorId: user.id,
+      schoolId: null,
       type: isPoll ? "poll" : "question",
       title,
       body,
       metadata: isPoll ? { options } : {},
-      is_anonymous: isAnonymous,
-      status: moderation.flagged ? "pending_review" : "published",
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
+      isAnonymous,
+    });
+  } catch {
     redirect("/network/ask?error=save_failed");
   }
 
-  redirect(`/network/${data.id}`);
+  redirect(`/network/${postId}`);
 }
 
 export async function votePoll(postId: string, optionIndex: number) {
@@ -88,16 +82,17 @@ export async function createComment(postId: string, formData: FormData) {
     redirect(`/network/${postId}`);
   }
 
-  const moderation = await checkContent(body);
-
-  await supabase.from("comments").insert({
-    post_id: postId,
-    author_id: user.id,
-    parent_comment_id: parentCommentId ? String(parentCommentId) : null,
-    body,
-    is_anonymous: isAnonymous,
-    status: moderation.flagged ? "pending_review" : "published",
-  });
+  try {
+    await publishComment({
+      authorId: user.id,
+      postId,
+      parentCommentId: parentCommentId ? String(parentCommentId) : null,
+      body,
+      isAnonymous,
+    });
+  } catch {
+    redirect(`/network/${postId}?error=save_failed`);
+  }
 
   redirect(`/network/${postId}`);
 }
