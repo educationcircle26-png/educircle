@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
+import { PageShell } from "@/components/PageShell";
 
 const STAT_STYLES = [
   { bg: "bg-violet-100", text: "text-violet-600" },
@@ -137,12 +137,12 @@ export default async function ProfilePage() {
     .slice(0, 8);
 
   const displayName = profile?.display_name || profile?.full_name || "Parent";
+  const isAdmin = !!profile?.is_admin;
 
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-7 shadow-sm">
+    <PageShell signedIn isAdmin={isAdmin} width="wide">
+      <div className="flex flex-col gap-6">
+        <div className="rise rounded-3xl border border-neutral-200 bg-white p-7 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-5">
               <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-2xl font-bold text-white">
@@ -353,7 +353,7 @@ export default async function ProfilePage() {
             </div>
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </PageShell>
   );
 }

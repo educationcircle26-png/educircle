@@ -18,8 +18,10 @@ export default async function OnboardingPage() {
     .order("name");
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-10">
-      <OnboardingWizard userId={user.id} schools={schools ?? []} />
+    <main className="flex min-h-screen items-center justify-center bg-[#fbfaff] px-6 py-12">
+      <div className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm">
+        <OnboardingWizard userId={user.id} schools={schools ?? []} />
+      </div>
     </main>
   );
 }

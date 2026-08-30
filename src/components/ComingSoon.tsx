@@ -19,7 +19,7 @@ export function ComingSoon({
   backLabel?: string;
 }) {
   return (
-    <div className="mx-auto max-w-2xl px-6 py-16">
+    <div>
       <div className="rise rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm sm:p-10">
         <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
           NOT BUILT YET

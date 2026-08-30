@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
+import { currentUser } from "@/lib/currentUser";
+import { PageShell } from "@/components/PageShell";
 import { SCHOOL_CATEGORIES, categoryLabel } from "@/lib/schoolCategories";
 import {
   joinWithInviteCode,
@@ -34,7 +34,7 @@ export default async function SchoolCommunityPage({
 }) {
   const { id } = await params;
   const { category } = await searchParams;
-  const supabase = await createClient();
+  const { supabase, user, isAdmin } = await currentUser();
 
   const { data: school } = await supabase
     .from("schools")
@@ -46,9 +46,6 @@ export default async function SchoolCommunityPage({
     notFound();
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const joinWithInviteCodeForSchool = joinWithInviteCode.bind(null, id);
   const joinWithDocumentForSchool = joinWithDocument.bind(null, id);
@@ -60,9 +57,7 @@ export default async function SchoolCommunityPage({
 
   if (!user) {
     return (
-      <>
-        <AppHeader />
-        <main className="mx-auto max-w-md px-6 py-10 text-center">
+      <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
           <h1 className="text-xl font-bold text-neutral-900">
             {school.name} community
           </h1>
@@ -75,8 +70,7 @@ export default async function SchoolCommunityPage({
           >
             Log in
           </Link>
-        </main>
-      </>
+        </PageShell>
     );
   }
 
@@ -89,9 +83,7 @@ export default async function SchoolCommunityPage({
 
   if (!membership) {
     return (
-      <>
-        <AppHeader />
-        <main className="mx-auto max-w-md px-6 py-10">
+      <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
           <h1 className="text-xl font-bold text-neutral-900">
             Join the {school.name} community
           </h1>
@@ -169,16 +161,13 @@ export default async function SchoolCommunityPage({
               </button>
             </form>
           </div>
-        </main>
-      </>
+        </PageShell>
     );
   }
 
   if (membership.status === "pending") {
     return (
-      <>
-        <AppHeader />
-        <main className="mx-auto max-w-md px-6 py-10 text-center">
+      <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
           <h1 className="text-xl font-bold text-neutral-900">
             Request pending
           </h1>
@@ -186,16 +175,13 @@ export default async function SchoolCommunityPage({
             A moderator at {school.name} is reviewing your request.
             We&apos;ll let you in as soon as it&apos;s approved.
           </p>
-        </main>
-      </>
+        </PageShell>
     );
   }
 
   if (membership.status === "rejected") {
     return (
-      <>
-        <AppHeader />
-        <main className="mx-auto max-w-md px-6 py-10 text-center">
+      <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
           <h1 className="text-xl font-bold text-neutral-900">
             Request declined
           </h1>
@@ -203,8 +189,7 @@ export default async function SchoolCommunityPage({
             Your request to join {school.name} wasn&apos;t approved. Contact
             support if you think this is a mistake.
           </p>
-        </main>
-      </>
+        </PageShell>
     );
   }
 
@@ -289,9 +274,7 @@ export default async function SchoolCommunityPage({
   ];
 
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-6xl px-6 py-10">
+    <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
         <div className="rounded-2xl border border-neutral-200 bg-gradient-to-br from-violet-50 to-white p-7 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -474,7 +457,6 @@ export default async function SchoolCommunityPage({
             )}
           </aside>
         </div>
-      </main>
-    </>
+      </PageShell>
   );
 }

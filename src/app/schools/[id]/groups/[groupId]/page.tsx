@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
+import { currentUser } from "@/lib/currentUser";
+import { PageShell, PageHeading, Card } from "@/components/PageShell";
 import { leaveGroup, sendMessage } from "../actions";
 
 export default async function GroupChatPage({
@@ -10,11 +10,7 @@ export default async function GroupChatPage({
   params: Promise<{ id: string; groupId: string }>;
 }) {
   const { id, groupId } = await params;
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user, isAdmin } = await currentUser();
 
   if (!user) redirect("/login");
 
@@ -53,38 +49,27 @@ export default async function GroupChatPage({
   const sendToGroup = sendMessage.bind(null, id, groupId);
 
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto flex max-w-2xl flex-col px-6 py-8">
-        <Link
-          href={`/schools/${id}/groups`}
-          className="text-sm font-semibold text-violet-600"
-        >
-          ← All groups
-        </Link>
-
-        <div className="mt-3 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-slate-900">
-              {group.name}
-            </h1>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {memberCount ?? 0}{" "}
-              {memberCount === 1 ? "member" : "members"}
-              {group.class_name ? ` · ${group.class_name}` : ""}
-            </p>
-          </div>
+    <PageShell signedIn isAdmin={isAdmin}>
+      <PageHeading
+        title={group.name}
+        subtitle={`${memberCount ?? 0} ${memberCount === 1 ? "member" : "members"}${
+          group.class_name ? ` · ${group.class_name}` : ""
+        }`}
+        back={{ href: `/schools/${id}/groups`, label: "All groups" }}
+        action={
           <form action={leaveGroup.bind(null, id, groupId)}>
             <button
               type="submit"
-              className="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-rose-300 hover:text-rose-600"
+              className="shrink-0 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-rose-300 hover:text-rose-600"
             >
-              Leave
+              Leave group
             </button>
           </form>
-        </div>
+        }
+      />
 
-        <div className="mt-6 flex flex-col gap-3">
+      <Card className="rise rise-1">
+        <div className="flex flex-col gap-3">
           {messages && messages.length > 0 ? (
             messages.map((message) => {
               const mine = message.author_id === user.id;
@@ -137,16 +122,16 @@ export default async function GroupChatPage({
             required
             autoComplete="off"
             placeholder="Write a message..."
-            className="flex-1 rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+            className="flex-1 rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none transition focus:border-violet-600"
           />
           <button
             type="submit"
-            className="shrink-0 rounded-xl bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-700"
+            className="shrink-0 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
           >
             Send
           </button>
         </form>
-      </main>
-    </>
+      </Card>
+    </PageShell>
   );
 }

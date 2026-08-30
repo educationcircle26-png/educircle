@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
+import { currentUser } from "@/lib/currentUser";
+import { PageShell } from "@/components/PageShell";
 import { SCHOOL_CATEGORIES } from "@/lib/schoolCategories";
 import { createSchoolPost } from "../actions";
 
@@ -10,7 +10,7 @@ export default async function AskSchoolCommunityPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, user, isAdmin } = await currentUser();
 
   const { data: school } = await supabase
     .from("schools")
@@ -22,9 +22,6 @@ export default async function AskSchoolCommunityPage({
     notFound();
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
@@ -44,9 +41,7 @@ export default async function AskSchoolCommunityPage({
   const createSchoolPostForSchool = createSchoolPost.bind(null, id);
 
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-lg px-6 py-10">
+    <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
         <h1 className="text-xl font-bold text-neutral-900">
           Ask the {school.name} community
         </h1>
@@ -131,7 +126,6 @@ export default async function AskSchoolCommunityPage({
             Post
           </button>
         </form>
-      </main>
-    </>
+      </PageShell>
   );
 }

@@ -1,91 +1,110 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
+import { currentUser } from "@/lib/currentUser";
+import { PageShell, PageHeading, Card } from "@/components/PageShell";
 import { createQuestion } from "../actions";
 
-export default async function AskQuestionPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export const metadata = { title: "Ask a Question · EduCircle" };
 
-  if (!user) {
-    redirect("/login");
-  }
+const field =
+  "w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none transition focus:border-violet-600 focus:ring-1 focus:ring-violet-600";
+
+export default async function AskQuestionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const { user, isAdmin } = await currentUser();
+
+  if (!user) redirect("/login");
 
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-lg px-6 py-10">
-        <h1 className="text-xl font-bold text-neutral-900">
-          Ask parents about your situation
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600">
-          Your question will be shared with parents who have relevant
-          experience.
+    <PageShell signedIn isAdmin={isAdmin} width="form">
+      <PageHeading
+        title="Ask a Question"
+        subtitle="Your question is shared with every parent on EduCircle."
+        back={{ href: "/network", label: "Back to questions" }}
+      />
+
+      {error && (
+        <p className="rise rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error === "missing_fields"
+            ? "A question needs a title, and either details or poll options."
+            : "That didn't save. Please try again."}
         </p>
+      )}
 
-        <form action={createQuestion} className="mt-6 flex flex-col gap-4">
-          <input
-            name="title"
-            required
-            placeholder="What's your question?"
-            className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
-          />
-          <textarea
-            name="body"
-            rows={5}
-            maxLength={500}
-            placeholder="Add some details..."
-            className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
-          />
+      <Card className="rise rise-1">
+        <form action={createQuestion} className="flex flex-col gap-4">
+          <div>
+            <label className="text-sm font-semibold text-slate-700">
+              Question
+            </label>
+            <input
+              name="title"
+              required
+              placeholder="What would you like to know?"
+              className={`mt-1.5 ${field}`}
+            />
+          </div>
 
-          <div className="rounded-xl border border-dashed border-neutral-300 p-4">
-            <p className="text-sm font-medium text-neutral-800">
-              Turn this into a poll (optional)
+          <div>
+            <label className="text-sm font-semibold text-slate-700">
+              Details
+            </label>
+            <textarea
+              name="body"
+              rows={5}
+              maxLength={500}
+              placeholder="Add the context that would help someone answer well..."
+              className={`mt-1.5 ${field}`}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-neutral-300 p-4">
+            <p className="text-sm font-semibold text-slate-800">
+              Turn this into a poll
+              <span className="ml-1.5 font-normal text-slate-400">
+                (optional)
+              </span>
             </p>
-            <p className="mt-0.5 text-xs text-neutral-500">
+            <p className="mt-0.5 text-xs text-slate-500">
               Fill in at least 2 options and parents will vote instead of
               writing answers.
             </p>
             <div className="mt-3 flex flex-col gap-2">
-              <input
-                name="option_1"
-                placeholder="Option 1"
-                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
-              />
-              <input
-                name="option_2"
-                placeholder="Option 2"
-                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
-              />
-              <input
-                name="option_3"
-                placeholder="Option 3 (optional)"
-                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
-              />
-              <input
-                name="option_4"
-                placeholder="Option 4 (optional)"
-                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-violet-600"
-              />
+              {[1, 2, 3, 4].map((n) => (
+                <input
+                  key={n}
+                  name={`option_${n}`}
+                  placeholder={`Option ${n}${n > 2 ? " (optional)" : ""}`}
+                  className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none transition focus:border-violet-600"
+                />
+              ))}
             </div>
           </div>
 
-          <label className="flex items-center justify-between rounded-xl border border-neutral-200 px-4 py-3">
-            <span className="text-sm text-neutral-700">
-              Post anonymously
+          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-neutral-200 px-4 py-3 transition hover:bg-neutral-50">
+            <span>
+              <span className="block text-sm font-semibold text-slate-800">
+                Post anonymously
+              </span>
+              <span className="text-xs text-slate-500">
+                Your name is hidden from other parents. Moderators can still
+                see it.
+              </span>
             </span>
             <input type="checkbox" name="is_anonymous" className="h-4 w-4" />
           </label>
+
           <button
             type="submit"
-            className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-medium text-white hover:bg-violet-700"
+            className="rounded-xl bg-violet-600 px-4 py-3.5 text-sm font-bold text-white transition hover:bg-violet-700"
           >
-            Post
+            Post Question
           </button>
         </form>
-      </main>
-    </>
+      </Card>
+    </PageShell>
   );
 }

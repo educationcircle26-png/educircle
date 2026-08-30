@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
+import { currentUser } from "@/lib/currentUser";
+import { PageShell } from "@/components/PageShell";
 import { reviewMembership } from "../actions";
 
 export default async function ManageSchoolCommunityPage({
@@ -9,7 +9,7 @@ export default async function ManageSchoolCommunityPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, user, isAdmin } = await currentUser();
 
   const { data: school } = await supabase
     .from("schools")
@@ -21,9 +21,6 @@ export default async function ManageSchoolCommunityPage({
     notFound();
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
@@ -48,9 +45,7 @@ export default async function ManageSchoolCommunityPage({
     .order("created_at");
 
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-2xl px-6 py-10">
+    <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
         <h1 className="text-xl font-bold text-neutral-900">
           Review requests — {school.name}
         </h1>
@@ -112,7 +107,6 @@ export default async function ManageSchoolCommunityPage({
             <p className="text-neutral-600">No pending requests.</p>
           )}
         </div>
-      </main>
-    </>
+      </PageShell>
   );
 }

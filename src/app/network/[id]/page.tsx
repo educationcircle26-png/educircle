@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { AppHeader } from "@/components/AppHeader";
+import { currentUser } from "@/lib/currentUser";
+import { PageShell } from "@/components/PageShell";
 import {
   createComment,
   toggleCommentReaction,
@@ -86,7 +86,7 @@ export default async function QuestionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, user, isAdmin } = await currentUser();
 
   const { data: post } = await supabase
     .from("posts_with_author")
@@ -100,9 +100,6 @@ export default async function QuestionPage({
     notFound();
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const isPoll = post.type === "poll";
   const pollOptions: string[] = isPoll
@@ -214,9 +211,7 @@ export default async function QuestionPage({
   }
 
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto max-w-2xl px-6 py-10">
+    <PageShell signedIn={!!user} isAdmin={isAdmin} width="wide">
         {post.status !== "published" && post.author_id === user?.id && (
           <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
             This post is under review and only visible to you until a
@@ -492,7 +487,6 @@ export default async function QuestionPage({
             to answer this question.
           </p>
         )}
-      </main>
-    </>
+      </PageShell>
   );
 }

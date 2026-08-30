@@ -1,29 +1,14 @@
-import { createClient } from "@/lib/supabase/server";
-import { SiteNav } from "@/components/SiteNav";
+import { currentUser } from "@/lib/currentUser";
+import { PageShell } from "@/components/PageShell";
 import { ComingSoon } from "@/components/ComingSoon";
 
 export const metadata = { title: "Activities · EduCircle" };
 
 export default async function ActivitiesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  let isAdmin = false;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-    isAdmin = !!profile?.is_admin;
-  }
+  const { user, isAdmin } = await currentUser();
 
   return (
-    <>
-      <SiteNav isSignedIn={!!user} isAdmin={isAdmin} />
-      <main className="bg-[#fbfaff]">
+    <PageShell signedIn={!!user} isAdmin={isAdmin} width="form">
         <ComingSoon
           title="Activities"
           summary="Sports clubs, tutoring, summer camps and after-school classes — recommended by the parents whose children actually go."
@@ -34,7 +19,6 @@ export default async function ActivitiesPage() {
             "Nothing paid or sponsored — same promise as the school directory",
           ]}
         />
-      </main>
-    </>
+    </PageShell>
   );
 }
