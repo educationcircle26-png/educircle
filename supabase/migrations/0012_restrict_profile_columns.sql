@@ -54,7 +54,18 @@ from public.profiles;
 grant select on public.public_profiles to anon, authenticated;
 
 -- Repoint the author views at the narrowed source.
-create or replace view public.posts_with_author
+--
+-- These are dropped rather than replaced: they select `c.*` / `p.*`, which was
+-- expanded to a fixed column list when each view was created. Migration 0008
+-- added comments.parent_comment_id after the fact, so re-expanding `c.*` now
+-- shifts every later column and CREATE OR REPLACE refuses the rename. Dropping
+-- also repairs comments_with_author, which had been stuck without
+-- parent_comment_id since 0008 and so never returned it to the app.
+drop view if exists public.posts_with_author;
+drop view if exists public.comments_with_author;
+drop view if exists public.chat_messages_with_author;
+
+create view public.posts_with_author
 with (security_invoker = true)
 as
 select
@@ -72,7 +83,7 @@ select
 from public.posts p
 join public.public_profiles pr on pr.id = p.author_id;
 
-create or replace view public.comments_with_author
+create view public.comments_with_author
 with (security_invoker = true)
 as
 select
@@ -90,7 +101,7 @@ select
 from public.comments c
 join public.public_profiles pr on pr.id = c.author_id;
 
-create or replace view public.chat_messages_with_author
+create view public.chat_messages_with_author
 with (security_invoker = true)
 as
 select
@@ -99,3 +110,8 @@ select
   pr.avatar_url as author_avatar_url
 from public.chat_messages m
 join public.public_profiles pr on pr.id = m.author_id;
+
+-- Dropping the views dropped their grants along with them.
+grant select on public.posts_with_author to anon, authenticated;
+grant select on public.comments_with_author to anon, authenticated;
+grant select on public.chat_messages_with_author to authenticated;
