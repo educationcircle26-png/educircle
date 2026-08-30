@@ -1,221 +1,191 @@
 import Link from "next/link";
 import { requireAdminPage } from "@/lib/requireAdmin";
-import { decideMembership, setMembershipRole } from "../actions";
+import {
+  AdminHeading,
+  Panel,
+  Empty,
+  Pill,
+  ConfirmButton,
+} from "@/components/admin/ui";
+import { createSchool, updateSchool, deleteSchool } from "../actions";
+
+const field =
+  "w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-violet-600";
 
 export default async function AdminSchoolsPage() {
-  const { supabase } = await requireAdminPage();
+  const { db } = await requireAdminPage();
 
-  const [{ data: schools }, { data: pending }] = await Promise.all([
-    supabase.from("schools").select("id, name, area").order("name"),
-    supabase
-      .from("school_memberships")
-      .select("id, user_id, school_id, verification_method, created_at")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: schools }, { data: memberships }, { data: posts }] =
+    await Promise.all([
+      db
+        .from("schools")
+        .select(
+          "id, name, area, curriculum, min_year, max_year, description",
+        )
+        .order("name"),
+      db.from("school_memberships").select("school_id, status, role"),
+      db.from("posts").select("school_id").not("school_id", "is", null),
+    ]);
 
-  const { data: approved } = await supabase
-    .from("school_memberships")
-    .select("id, user_id, school_id, role")
-    .eq("status", "approved");
-
-  const approvedBySchool = new Map<string, number>();
-  const moderatorsBySchool = new Map<string, number>();
-  for (const m of approved ?? []) {
-    approvedBySchool.set(
-      m.school_id,
-      (approvedBySchool.get(m.school_id) ?? 0) + 1,
-    );
-    if (m.role === "moderator") {
-      moderatorsBySchool.set(
-        m.school_id,
-        (moderatorsBySchool.get(m.school_id) ?? 0) + 1,
-      );
+  const approved = new Map<string, number>();
+  const moderators = new Map<string, number>();
+  const pending = new Map<string, number>();
+  for (const m of memberships ?? []) {
+    if (m.status === "approved") {
+      approved.set(m.school_id, (approved.get(m.school_id) ?? 0) + 1);
+      if (m.role === "moderator")
+        moderators.set(m.school_id, (moderators.get(m.school_id) ?? 0) + 1);
+    } else if (m.status === "pending") {
+      pending.set(m.school_id, (pending.get(m.school_id) ?? 0) + 1);
     }
   }
-
-  // Approved members at schools that still have nobody in charge — these are
-  // the candidates an admin can appoint.
-  const moderatorCandidates = (approved ?? []).filter(
-    (m) => (moderatorsBySchool.get(m.school_id) ?? 0) === 0,
-  );
-
-  const peopleIds = [
-    ...new Set([
-      ...(pending ?? []).map((p) => p.user_id),
-      ...moderatorCandidates.map((m) => m.user_id),
-    ]),
-  ];
-  const { data: people } =
-    peopleIds.length > 0
-      ? await supabase
-          .from("profiles")
-          .select("id, display_name")
-          .in("id", peopleIds)
-      : { data: [] as { id: string; display_name: string | null }[] };
-
-  const nameOf = (uid: string) =>
-    people?.find((r) => r.id === uid)?.display_name || "A parent";
-  const schoolNameOf = (sid: string) =>
-    schools?.find((s) => s.id === sid)?.name || "Unknown school";
+  const postCount = new Map<string, number>();
+  for (const p of posts ?? [])
+    if (p.school_id)
+      postCount.set(p.school_id, (postCount.get(p.school_id) ?? 0) + 1);
 
   return (
-    <div className="flex flex-col gap-8">
-      <section>
-        <h2 className="text-sm font-bold text-slate-900">
-          Pending verification requests ({pending?.length ?? 0})
-        </h2>
-        <div className="mt-3 flex flex-col gap-3">
-          {pending && pending.length > 0 ? (
-            pending.map((request) => (
-              <div
-                key={request.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/50 p-4"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {nameOf(request.user_id)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {schoolNameOf(request.school_id)} ·{" "}
-                    {request.verification_method ?? "no method given"} ·{" "}
-                    {new Date(request.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <form
-                    action={decideMembership.bind(
-                      null,
-                      request.id,
-                      "approved",
-                    )}
-                  >
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                    >
-                      Approve
-                    </button>
-                  </form>
-                  <form
-                    action={decideMembership.bind(
-                      null,
-                      request.id,
-                      "rejected",
-                    )}
-                  >
-                    <button
-                      type="submit"
-                      className="rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                    >
-                      Reject
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="rounded-2xl border border-dashed border-neutral-300 p-6 text-center text-sm text-slate-600">
-              No pending requests.
-            </p>
-          )}
-        </div>
-      </section>
+    <div className="flex flex-col gap-6">
+      <AdminHeading
+        title="Schools"
+        subtitle={`${schools?.length ?? 0} in the directory.`}
+      />
 
-      <section>
-        <h2 className="text-sm font-bold text-slate-900">
-          Appoint a moderator ({moderatorCandidates.length})
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          These schools have verified parents but nobody moderating yet. A
-          moderator approves join requests and can read that school&apos;s
-          uploaded verification documents, so appoint deliberately.
-        </p>
-        <div className="mt-3 flex flex-col gap-2">
-          {moderatorCandidates.length > 0 ? (
-            moderatorCandidates.map((m) => (
-              <div
-                key={m.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 p-4"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {nameOf(m.user_id)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {schoolNameOf(m.school_id)}
-                  </p>
-                </div>
-                <form action={setMembershipRole.bind(null, m.id, "moderator")}>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
-                  >
-                    Make moderator
-                  </button>
-                </form>
-              </div>
-            ))
-          ) : (
-            <p className="rounded-2xl border border-dashed border-neutral-300 p-6 text-center text-sm text-slate-600">
-              Every school with members has a moderator.
-            </p>
-          )}
-        </div>
-      </section>
+      <Panel
+        title="Add a school"
+        description="Appears in the public directory immediately."
+      >
+        <form action={createSchool} className="grid gap-3 sm:grid-cols-2">
+          <input name="name" required placeholder="School name" className={field} />
+          <input name="area" placeholder="Area (e.g. New Cairo)" className={field} />
+          <input
+            name="curriculum"
+            placeholder="Curricula, comma separated (British, IB)"
+            className={field}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <input name="min_year" placeholder="From (Nursery)" className={field} />
+            <input name="max_year" placeholder="To (Year 13)" className={field} />
+          </div>
+          <textarea
+            name="description"
+            rows={2}
+            placeholder="Short description"
+            className={`${field} sm:col-span-2`}
+          />
+          <button
+            type="submit"
+            className="justify-self-start rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+          >
+            Add school
+          </button>
+        </form>
+      </Panel>
 
-      <section>
-        <h2 className="text-sm font-bold text-slate-900">
-          Schools ({schools?.length ?? 0})
-        </h2>
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-neutral-200">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-neutral-50 text-xs text-slate-500">
-              <tr>
-                <th className="px-4 py-2.5 font-semibold">School</th>
-                <th className="px-4 py-2.5 font-semibold">Area</th>
-                <th className="px-4 py-2.5 font-semibold">Verified parents</th>
-                <th className="px-4 py-2.5 font-semibold">Moderators</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {schools?.map((school) => (
-                <tr key={school.id} className="border-t border-neutral-100">
-                  <td className="px-4 py-2.5 font-medium text-slate-800">
-                    {school.name}
-                  </td>
-                  <td className="px-4 py-2.5 text-slate-600">
-                    {school.area ?? "—"}
-                  </td>
-                  <td className="px-4 py-2.5 text-slate-600">
-                    {approvedBySchool.get(school.id) ?? 0}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {moderatorsBySchool.get(school.id) ? (
-                      <span className="text-slate-600">
-                        {moderatorsBySchool.get(school.id)}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                        none
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
+      {schools && schools.length > 0 ? (
+        <div className="flex flex-col gap-4">
+          {schools.map((s) => {
+            const noModerator = (moderators.get(s.id) ?? 0) === 0;
+            return (
+              <Panel key={s.id}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-bold text-slate-900">{s.name}</h3>
+                      {noModerator && (approved.get(s.id) ?? 0) > 0 && (
+                        <Pill tone="amber">no moderator</Pill>
+                      )}
+                      {(pending.get(s.id) ?? 0) > 0 && (
+                        <Pill tone="violet">
+                          {pending.get(s.id)} pending
+                        </Pill>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {s.area ?? "no area"} · {approved.get(s.id) ?? 0} verified
+                      · {moderators.get(s.id) ?? 0} moderator
+                      {(moderators.get(s.id) ?? 0) === 1 ? "" : "s"} ·{" "}
+                      {postCount.get(s.id) ?? 0} posts
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
                     <Link
-                      href={`/schools/${school.id}/community`}
-                      className="text-xs font-semibold text-violet-600 hover:underline"
+                      href={`/schools/${s.id}`}
+                      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-neutral-50"
                     >
-                      Open
+                      View
                     </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <form action={deleteSchool.bind(null, s.id)}>
+                      <ConfirmButton
+                        confirm={`Delete "${s.name}" permanently? Its memberships, posts and group chats are deleted with it.`}
+                      >
+                        Delete
+                      </ConfirmButton>
+                    </form>
+                  </div>
+                </div>
+
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-xs font-bold text-violet-600">
+                    Edit details
+                  </summary>
+                  <form
+                    action={updateSchool.bind(null, s.id)}
+                    className="mt-3 grid gap-3 sm:grid-cols-2"
+                  >
+                    <input
+                      name="name"
+                      required
+                      defaultValue={s.name}
+                      className={field}
+                    />
+                    <input
+                      name="area"
+                      defaultValue={s.area ?? ""}
+                      placeholder="Area"
+                      className={field}
+                    />
+                    <input
+                      name="curriculum"
+                      defaultValue={(s.curriculum ?? []).join(", ")}
+                      placeholder="Curricula, comma separated"
+                      className={field}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        name="min_year"
+                        defaultValue={s.min_year ?? ""}
+                        placeholder="From"
+                        className={field}
+                      />
+                      <input
+                        name="max_year"
+                        defaultValue={s.max_year ?? ""}
+                        placeholder="To"
+                        className={field}
+                      />
+                    </div>
+                    <textarea
+                      name="description"
+                      rows={2}
+                      defaultValue={s.description ?? ""}
+                      className={`${field} sm:col-span-2`}
+                    />
+                    <button
+                      type="submit"
+                      className="justify-self-start rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+                    >
+                      Save changes
+                    </button>
+                  </form>
+                </details>
+              </Panel>
+            );
+          })}
         </div>
-      </section>
+      ) : (
+        <Empty>No schools yet. Add the first one above.</Empty>
+      )}
     </div>
   );
 }

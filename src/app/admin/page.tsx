@@ -1,126 +1,162 @@
+import Link from "next/link";
 import { requireAdminPage } from "@/lib/requireAdmin";
-
-const TILE_STYLES = [
-  "bg-violet-100 text-violet-700",
-  "bg-sky-100 text-sky-700",
-  "bg-amber-100 text-amber-700",
-  "bg-rose-100 text-rose-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-slate-100 text-slate-700",
-];
+import { AdminHeading, Panel, StatTile, Empty } from "@/components/admin/ui";
 
 export default async function AdminOverviewPage() {
-  const { supabase } = await requireAdminPage();
+  const { db } = await requireAdminPage();
+
+  // `column`/`value` rather than a callback: the query builder's generics
+  // make a "refine this query" callback painful to type for no real gain.
+  const count = async (table: string, column?: string, value?: unknown) => {
+    const q = db.from(table).select("*", { count: "exact", head: true });
+    const { count: n } = await (column ? q.eq(column, value) : q);
+    return n ?? 0;
+  };
 
   const [
-    { count: parents },
-    { count: schools },
-    { count: posts },
-    { count: comments },
-    { count: pendingPosts },
-    { count: openReports },
-    { count: pendingMemberships },
-    { count: groups },
+    accounts,
+    admins,
+    schools,
+    approvedMembers,
+    pendingMembers,
+    posts,
+    heldPosts,
+    heldComments,
+    openReports,
+    groups,
+    messages,
+    children,
   ] = await Promise.all([
-    supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase.from("schools").select("*", { count: "exact", head: true }),
-    supabase
-      .from("posts")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "published"),
-    supabase
-      .from("comments")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "published"),
-    supabase
-      .from("posts")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "pending_review"),
-    supabase
-      .from("reports")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "open"),
-    supabase
-      .from("school_memberships")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "pending"),
-    supabase.from("chat_groups").select("*", { count: "exact", head: true }),
+    count("profiles"),
+    count("profiles", "is_admin", true),
+    count("schools"),
+    count("school_memberships", "status", "approved"),
+    count("school_memberships", "status", "pending"),
+    count("posts", "status", "published"),
+    count("posts", "status", "pending_review"),
+    count("comments", "status", "pending_review"),
+    count("reports", "status", "open"),
+    count("chat_groups"),
+    count("chat_messages"),
+    count("children"),
   ]);
 
-  const stats = [
-    { label: "Parents", value: parents ?? 0 },
-    { label: "Schools", value: schools ?? 0 },
-    { label: "Published posts", value: posts ?? 0 },
-    { label: "Answers", value: comments ?? 0 },
-    { label: "Chat groups", value: groups ?? 0 },
-  ];
+  const needsAttention = heldPosts + heldComments + openReports + pendingMembers;
 
-  const queue = [
-    {
-      label: "Posts awaiting review",
-      value: pendingPosts ?? 0,
-      href: "/admin/moderation",
-    },
-    {
-      label: "Open reports",
-      value: openReports ?? 0,
-      href: "/admin/moderation",
-    },
-    {
-      label: "Pending school requests",
-      value: pendingMemberships ?? 0,
-      href: "/admin/schools",
-    },
-  ];
+  const { data: recent } = await db
+    .from("posts")
+    .select("id, title, status, created_at, school_id")
+    .order("created_at", { ascending: false })
+    .limit(6);
 
   return (
-    <div className="flex flex-col gap-8">
-      <section>
-        <h2 className="text-sm font-bold text-slate-900">Needs attention</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          {queue.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              className={`rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-sm ${
-                item.value > 0
-                  ? "border-amber-300 bg-amber-50"
-                  : "border-neutral-200 bg-white"
-              }`}
-            >
-              <p
-                className={`text-2xl font-extrabold ${
-                  item.value > 0 ? "text-amber-700" : "text-slate-400"
-                }`}
-              >
-                {item.value}
-              </p>
-              <p className="mt-0.5 text-xs text-slate-600">{item.label}</p>
-            </a>
-          ))}
-        </div>
-      </section>
+    <div className="flex flex-col gap-6">
+      <AdminHeading
+        title="Overview"
+        subtitle="Everything on EduCircle at a glance."
+      />
 
-      <section>
-        <h2 className="text-sm font-bold text-slate-900">Platform totals</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {stats.map((stat, i) => (
-            <div
-              key={stat.label}
-              className="rounded-2xl border border-neutral-200 bg-white p-4 text-center shadow-sm"
-            >
-              <div
-                className={`mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                  TILE_STYLES[i % TILE_STYLES.length]
-                }`}
-              >
-                {stat.value}
-              </div>
-              <p className="text-xs text-slate-500">{stat.label}</p>
-            </div>
-          ))}
+      {needsAttention > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div>
+            <p className="text-sm font-extrabold text-amber-900">
+              {needsAttention} {needsAttention === 1 ? "item needs" : "items need"} your attention
+            </p>
+            <p className="mt-0.5 text-xs text-amber-800">
+              {heldPosts} held {heldPosts === 1 ? "post" : "posts"} ·{" "}
+              {heldComments} held {heldComments === 1 ? "comment" : "comments"} ·{" "}
+              {openReports} open {openReports === 1 ? "report" : "reports"} ·{" "}
+              {pendingMembers} join{" "}
+              {pendingMembers === 1 ? "request" : "requests"}
+            </p>
+          </div>
+          <Link
+            href="/admin/moderation"
+            className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-amber-700"
+          >
+            Open moderation
+          </Link>
         </div>
-      </section>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile label="Accounts" value={accounts} href="/admin/users" />
+        <StatTile label="Schools" value={schools} href="/admin/schools" />
+        <StatTile
+          label="Verified memberships"
+          value={approvedMembers}
+          href="/admin/members"
+          tone="emerald"
+        />
+        <StatTile
+          label="Published questions"
+          value={posts}
+          href="/admin/questions"
+          tone="violet"
+        />
+        <StatTile
+          label="Held for review"
+          value={heldPosts + heldComments}
+          href="/admin/moderation"
+          tone={heldPosts + heldComments > 0 ? "amber" : "slate"}
+        />
+        <StatTile
+          label="Open reports"
+          value={openReports}
+          href="/admin/moderation"
+          tone={openReports > 0 ? "rose" : "slate"}
+        />
+        <StatTile label="Group chats" value={groups} href="/admin/groups" />
+        <StatTile label="Chat messages" value={messages} href="/admin/groups" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatTile label="Site admins" value={admins} href="/admin/users" />
+        <StatTile
+          label="Pending join requests"
+          value={pendingMembers}
+          href="/admin/members"
+          tone={pendingMembers > 0 ? "amber" : "slate"}
+        />
+        <StatTile label="Children registered" value={children} />
+      </div>
+
+      <Panel title="Latest posts" description="Newest first, any status.">
+        {recent && recent.length > 0 ? (
+          <div className="flex flex-col divide-y divide-neutral-100">
+            {recent.map((p) => (
+              <Link
+                key={p.id}
+                href={`/network/${p.id}`}
+                className="-mx-2 flex items-center justify-between gap-4 rounded-lg px-2 py-3 transition hover:bg-neutral-50"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-slate-800">
+                    {p.title}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {new Date(p.created_at).toLocaleString()}
+                    {p.school_id ? " · school only" : " · public"}
+                  </span>
+                </span>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                    p.status === "published"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : p.status === "pending_review"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {p.status.replace("_", " ")}
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <Empty>Nothing has been posted yet.</Empty>
+        )}
+      </Panel>
     </div>
   );
 }
