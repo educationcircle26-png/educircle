@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
-
-export type NavLink = { href: string; label: string; badge?: string };
+import { NavIcon } from "@/components/NavIcon";
+import { navFor } from "@/lib/navLinks";
 
 /**
  * Site header. Nav sits on the left beside the logo (the app reads
@@ -13,16 +13,15 @@ export type NavLink = { href: string; label: string; badge?: string };
  * into a slide-in drawer below `lg`.
  */
 export function SiteNav({
-  links,
   isSignedIn,
   isAdmin,
 }: {
-  links: NavLink[];
   isSignedIn: boolean;
   isAdmin: boolean;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const links = navFor(isSignedIn);
 
   // A tap on a link navigates without unmounting the drawer, so close it here.
   useEffect(() => {
@@ -48,7 +47,7 @@ export function SiteNav({
             <Logo />
           </Link>
 
-          <nav className="hidden items-center gap-7 lg:flex">
+          <nav className="hidden items-center gap-6 xl:flex">
             {links.map((link) => (
               <Link
                 key={link.href}
@@ -57,9 +56,9 @@ export function SiteNav({
                 className="grow-underline flex items-center gap-1.5 text-sm font-semibold text-slate-600 transition hover:text-slate-900 data-[active=true]:text-violet-700"
               >
                 {link.label}
-                {link.badge && (
-                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                    {link.badge}
+                {link.soon && (
+                  <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                    Soon
                   </span>
                 )}
               </Link>
@@ -113,7 +112,7 @@ export function SiteNav({
               onClick={() => setOpen(true)}
               aria-label="Open menu"
               aria-expanded={open}
-              className="rounded-lg p-2 text-slate-600 hover:bg-neutral-100 lg:hidden"
+              className="rounded-lg p-2 text-slate-600 hover:bg-neutral-100 xl:hidden"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -132,7 +131,7 @@ export function SiteNav({
 
       {/* Drawer */}
       <div
-        className={`fixed inset-0 z-50 lg:hidden ${open ? "" : "pointer-events-none"}`}
+        className={`fixed inset-0 z-50 xl:hidden ${open ? "" : "pointer-events-none"}`}
         aria-hidden={!open}
       >
         <div
@@ -168,24 +167,30 @@ export function SiteNav({
           </div>
 
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                  isActive(link.href)
-                    ? "bg-violet-50 text-violet-700"
-                    : "text-slate-700 hover:bg-neutral-50"
-                }`}
-              >
-                {link.label}
-                {link.badge && (
-                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
-                    {link.badge}
+            {links.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                    active
+                      ? "bg-violet-50 text-violet-700"
+                      : "text-slate-700 hover:bg-neutral-50"
+                  }`}
+                >
+                  <span className={active ? "text-violet-600" : "text-slate-400"}>
+                    <NavIcon name={link.icon} />
                   </span>
-                )}
-              </Link>
-            ))}
+                  <span className="flex-1">{link.label}</span>
+                  {link.soon && (
+                    <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                      Soon
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="flex flex-col gap-2 border-t border-neutral-200 p-4">

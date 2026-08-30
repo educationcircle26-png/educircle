@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { SiteNav, type NavLink } from "@/components/SiteNav";
+import { SiteNav } from "@/components/SiteNav";
+import { SideRail } from "@/components/SideRail";
+import { PostActions } from "@/components/PostActions";
 import { HeroFamily } from "@/components/HeroFamily";
 import { categoryLabel } from "@/lib/schoolCategories";
 
@@ -246,57 +248,155 @@ export default async function HomePage({
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Signed-in extras.
-  let communities: {
-    id: string;
+  // Signed-in extras: school communities and class group chats, each with
+  // a real member count and real activity from the last week.
+  type Community = {
+    href: string;
     name: string;
-    parents: number;
-    role: string;
-  }[] = [];
+    detail: string;
+    activity: string | null;
+    initial: string;
+    moderator: boolean;
+  };
+  let communities: Community[] = [];
   let isAdmin = false;
+  const liked = new Set<string>();
+  const savedPosts = new Set<string>();
+
+  const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
 
   if (user) {
-    const [{ data: profile }, { data: memberships }] = await Promise.all([
-      supabase.from("profiles").select("is_admin").eq("id", user.id).single(),
-      supabase
-        .from("school_memberships")
-        .select("school_id, role")
-        .eq("user_id", user.id)
-        .eq("status", "approved"),
-    ]);
+    const [{ data: profile }, { data: memberships }, { data: myGroupRows }] =
+      await Promise.all([
+        supabase.from("profiles").select("is_admin").eq("id", user.id).single(),
+        supabase
+          .from("school_memberships")
+          .select("school_id, role")
+          .eq("user_id", user.id)
+          .eq("status", "approved"),
+        supabase
+          .from("chat_group_members")
+          .select("group_id")
+          .eq("user_id", user.id),
+      ]);
     isAdmin = !!profile?.is_admin;
 
-    const mySchoolIds = (memberships ?? []).map((m) => m.school_id);
-    if (mySchoolIds.length) {
-      const { data: peers } = await supabase
-        .from("school_memberships")
-        .select("school_id")
-        .in("school_id", mySchoolIds)
-        .eq("status", "approved");
-      const counts = new Map<string, number>();
-      for (const p of peers ?? [])
-        counts.set(p.school_id, (counts.get(p.school_id) ?? 0) + 1);
-
-      communities = (memberships ?? []).map((m) => ({
-        id: m.school_id,
-        name:
-          (schools ?? []).find((s) => s.id === m.school_id)?.name ?? "School",
-        parents: counts.get(m.school_id) ?? 0,
-        role: m.role,
-      }));
+    // Which of the posts on screen this parent already liked or saved.
+    if (postIds.length) {
+      const [{ data: myLikes }, { data: mySaves }] = await Promise.all([
+        supabase
+          .from("post_reactions")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .in("post_id", postIds),
+        supabase
+          .from("saved_posts")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .in("post_id", postIds),
+      ]);
+      for (const r of myLikes ?? []) liked.add(r.post_id);
+      for (const r of mySaves ?? []) savedPosts.add(r.post_id);
     }
-  }
 
-  const navLinks: NavLink[] = [
-    { href: "/", label: "Explore" },
-    { href: "/schools", label: "Schools" },
-    { href: "/network", label: "Questions" },
-  ];
-  if (user) navLinks.push({ href: "/profile", label: "My Circle" });
+    const mySchoolIds = (memberships ?? []).map((m) => m.school_id);
+    const myGroupIds = (myGroupRows ?? []).map((g) => g.group_id);
+
+    const [{ data: peers }, { data: groups }, { data: freshPosts }] =
+      await Promise.all([
+        mySchoolIds.length
+          ? supabase
+              .from("school_memberships")
+              .select("school_id")
+              .in("school_id", mySchoolIds)
+              .eq("status", "approved")
+          : Promise.resolve({ data: [] as { school_id: string }[] }),
+        myGroupIds.length
+          ? supabase
+              .from("chat_groups")
+              .select("id, name, school_id, class_name")
+              .in("id", myGroupIds)
+          : Promise.resolve({
+              data: [] as {
+                id: string;
+                name: string;
+                school_id: string;
+                class_name: string | null;
+              }[],
+            }),
+        mySchoolIds.length
+          ? supabase
+              .from("posts")
+              .select("school_id")
+              .in("school_id", mySchoolIds)
+              .eq("status", "published")
+              .gte("created_at", weekAgo)
+          : Promise.resolve({ data: [] as { school_id: string }[] }),
+      ]);
+
+    const parentCount = new Map<string, number>();
+    for (const p of peers ?? [])
+      parentCount.set(p.school_id, (parentCount.get(p.school_id) ?? 0) + 1);
+    const newPosts = new Map<string, number>();
+    for (const p of freshPosts ?? [])
+      newPosts.set(p.school_id, (newPosts.get(p.school_id) ?? 0) + 1);
+
+    const groupMemberCount = new Map<string, number>();
+    const groupActivity = new Map<string, number>();
+    if (myGroupIds.length) {
+      const [{ data: gm }, { data: msgs }] = await Promise.all([
+        supabase
+          .from("chat_group_members")
+          .select("group_id")
+          .in("group_id", myGroupIds),
+        supabase
+          .from("chat_messages")
+          .select("group_id")
+          .in("group_id", myGroupIds)
+          .gte("created_at", weekAgo),
+      ]);
+      for (const g of gm ?? [])
+        groupMemberCount.set(
+          g.group_id,
+          (groupMemberCount.get(g.group_id) ?? 0) + 1,
+        );
+      for (const m of msgs ?? [])
+        groupActivity.set(m.group_id, (groupActivity.get(m.group_id) ?? 0) + 1);
+    }
+
+    communities = [
+      ...(memberships ?? []).map((m) => {
+        const name =
+          (schools ?? []).find((s) => s.id === m.school_id)?.name ?? "School";
+        const parents = parentCount.get(m.school_id) ?? 0;
+        const fresh = newPosts.get(m.school_id) ?? 0;
+        return {
+          href: `/schools/${m.school_id}/community`,
+          name,
+          detail: `${parents} ${parents === 1 ? "parent" : "parents"}`,
+          activity: fresh ? `${fresh} new this week` : null,
+          initial: name.charAt(0),
+          moderator: m.role === "moderator",
+        };
+      }),
+      ...(groups ?? []).map((g) => {
+        const members = groupMemberCount.get(g.id) ?? 0;
+        const msgs = groupActivity.get(g.id) ?? 0;
+        return {
+          href: `/schools/${g.school_id}/groups/${g.id}`,
+          name: g.name,
+          detail: `${members} ${members === 1 ? "member" : "members"}`,
+          activity: msgs ? `${msgs} new this week` : null,
+          initial: g.class_name ?? g.name.charAt(0),
+          moderator: false,
+        };
+      }),
+    ];
+  }
 
   return (
     <>
-      <SiteNav links={navLinks} isSignedIn={!!user} isAdmin={isAdmin} />
+      <SiteNav isSignedIn={!!user} isAdmin={isAdmin} />
 
       <main className="bg-[#fbfaff]">
         {/* ---------------- Hero ---------------- */}
@@ -397,8 +497,10 @@ export default async function HomePage({
           </div>
         </section>
 
-        {/* ---------------- Body: feed + sidebar ---------------- */}
-        <div className="mx-auto grid max-w-[1400px] gap-6 px-4 pb-16 sm:px-8 lg:grid-cols-[1fr_23rem]">
+        {/* ---------------- Body: rail + feed + sidebar ---------------- */}
+        <div className="mx-auto grid max-w-[1400px] gap-6 px-4 pb-16 sm:px-8 lg:grid-cols-[1fr_23rem] xl:grid-cols-[13rem_1fr_23rem]">
+          <SideRail signedIn={!!user} />
+
           <div className="flex flex-col gap-6">
             {/* Intent cards */}
             <section className="rise rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -473,25 +575,32 @@ export default async function HomePage({
                     const likeCount = likes.get(post.id) ?? 0;
                     const tag = post.tags?.[0];
                     return (
-                      <Link
+                      <div
                         key={post.id}
-                        href={`/network/${post.id}`}
                         className={`rise rise-${Math.min(i + 1, 6)} group -mx-2 flex gap-4 rounded-2xl px-2 py-4 transition hover:bg-neutral-50`}
                       >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm font-bold text-white">
+                        <Link
+                          href={`/network/${post.id}`}
+                          aria-hidden
+                          tabIndex={-1}
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm font-bold text-white"
+                        >
                           {(post.is_anonymous
                             ? "?"
                             : (post.author_display_name ?? "P")
                           )
                             .charAt(0)
                             .toUpperCase()}
-                        </span>
+                        </Link>
 
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="font-bold text-slate-900 transition group-hover:text-violet-700">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/network/${post.id}`}
+                              className="font-bold text-slate-900 transition group-hover:text-violet-700"
+                            >
                               {post.title}
-                            </span>
+                            </Link>
                             {tag && (
                               <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-700">
                                 {categoryLabel(tag) ?? tag}
@@ -502,17 +611,33 @@ export default async function HomePage({
                                 School only
                               </span>
                             )}
-                          </span>
+                          </div>
                           {post.body && (
-                            <span className="mt-1 line-clamp-2 block text-sm text-slate-500">
+                            <Link
+                              href={`/network/${post.id}`}
+                              className="mt-1 line-clamp-2 block text-sm text-slate-500"
+                            >
                               {post.body}
-                            </span>
+                            </Link>
                           )}
-                          <span className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                            <span>
+                          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                            <Link
+                              href={`/network/${post.id}`}
+                              className="flex items-center gap-1 hover:text-violet-600"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-4.5A8 8 0 0 1 3 12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z" />
+                              </svg>
                               {answerCount}{" "}
                               {answerCount === 1 ? "answer" : "answers"}
-                            </span>
+                            </Link>
                             <span>·</span>
                             <span>{timeAgo(post.created_at)}</span>
                             <span>·</span>
@@ -521,21 +646,18 @@ export default async function HomePage({
                                 ? "Anonymous parent"
                                 : (post.author_display_name ?? "A parent")}
                             </span>
-                          </span>
-                        </span>
+                          </div>
+                        </div>
 
-                        {likeCount > 0 && (
-                          <span className="flex shrink-0 items-center gap-1 self-start text-xs font-bold text-rose-500">
-                            <svg viewBox="0 0 24 24" className="h-4 w-4">
-                              <path
-                                fill="currentColor"
-                                d="M12 21s-7-4.3-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.7-7 10-7 10z"
-                              />
-                            </svg>
-                            {likeCount}
-                          </span>
-                        )}
-                      </Link>
+                        <PostActions
+                          postId={post.id}
+                          likeCount={likeCount}
+                          liked={liked.has(post.id)}
+                          saved={savedPosts.has(post.id)}
+                          signedIn={!!user}
+                          returnTo={sort === "recent" ? "/" : `/?sort=${sort}`}
+                        />
+                      </div>
                     );
                   })}
                 </div>
@@ -593,23 +715,50 @@ export default async function HomePage({
                 {user && communities.length > 0
                   ? communities.map((c) => (
                       <Link
-                        key={c.id}
-                        href={`/schools/${c.id}/community`}
-                        className="lift flex items-center gap-3 rounded-2xl border border-neutral-200 p-3 hover:border-violet-300"
+                        key={c.href}
+                        href={c.href}
+                        className="lift group flex items-center gap-3 rounded-2xl border border-neutral-200 p-3 hover:border-violet-300"
                       >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
-                          {c.name.charAt(0)}
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-xs font-bold text-violet-700">
+                          {c.initial}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-bold text-slate-900">
-                            {c.name}
+                          <span className="flex items-center gap-1">
+                            <span className="truncate text-sm font-bold text-slate-900">
+                              {c.name}
+                            </span>
+                            {c.moderator && (
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-3.5 w-3.5 shrink-0 text-violet-600"
+                                aria-label="You moderate this"
+                              >
+                                <path
+                                  fill="currentColor"
+                                  d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z"
+                                />
+                              </svg>
+                            )}
                           </span>
-                          <span className="text-xs text-slate-500">
-                            {c.parents}{" "}
-                            {c.parents === 1 ? "parent" : "parents"}
-                            {c.role === "moderator" && " · moderator"}
+                          <span className="block text-xs text-slate-500">
+                            {c.detail}
                           </span>
+                          {c.activity && (
+                            <span className="mt-0.5 inline-block rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                              {c.activity}
+                            </span>
+                          )}
                         </span>
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        >
+                          <path d="M9 6l6 6-6 6" />
+                        </svg>
                       </Link>
                     ))
                   : (schools ?? []).slice(0, 4).map((s) => (
@@ -650,17 +799,26 @@ export default async function HomePage({
 
             {trending.length > 0 && (
               <section className="rise rise-3 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
-                <h2 className="text-sm font-extrabold text-slate-900">
-                  Most discussed topics
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-extrabold text-slate-900">
+                    Trending topics
+                  </h2>
+                  <Link
+                    href="/network"
+                    className="text-xs font-semibold text-violet-600 hover:underline"
+                  >
+                    View all
+                  </Link>
+                </div>
                 <div className="mt-4 flex flex-col gap-1">
                   {trending.map(([tag, count]) => (
                     <Link
                       key={tag}
-                      href={`/network`}
-                      className="flex items-center justify-between rounded-xl px-2 py-2 text-sm transition hover:bg-neutral-50"
+                      href="/network"
+                      className="group flex items-center gap-2.5 rounded-xl px-2 py-2 text-sm transition hover:bg-neutral-50"
                     >
-                      <span className="font-semibold text-slate-700">
+                      <span className="text-base leading-none">🔥</span>
+                      <span className="flex-1 font-semibold text-slate-700 transition group-hover:text-violet-700">
                         {categoryLabel(tag) ?? tag}
                       </span>
                       <span className="text-xs text-slate-400">

@@ -132,7 +132,9 @@ export async function toggleCommentReaction(
   redirect(`/network/${postId}`);
 }
 
-export async function toggleSave(postId: string) {
+// `returnTo` lets the same action serve the post page and the home feed —
+// whichever list the parent clicked from is where they end up again.
+export async function toggleSave(postId: string, returnTo?: string) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -161,5 +163,37 @@ export async function toggleSave(postId: string) {
       .insert({ post_id: postId, user_id: user.id });
   }
 
-  redirect(`/network/${postId}`);
+  redirect(returnTo ?? `/network/${postId}`);
+}
+
+export async function togglePostReaction(postId: string, returnTo?: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: existing } = await supabase
+    .from("post_reactions")
+    .select("post_id")
+    .eq("post_id", postId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from("post_reactions")
+      .delete()
+      .eq("post_id", postId)
+      .eq("user_id", user.id);
+  } else {
+    await supabase
+      .from("post_reactions")
+      .insert({ post_id: postId, user_id: user.id });
+  }
+
+  redirect(returnTo ?? `/network/${postId}`);
 }

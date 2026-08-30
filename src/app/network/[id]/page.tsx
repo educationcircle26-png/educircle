@@ -201,7 +201,7 @@ export default async function QuestionPage({
   }
 
   const createCommentForPost = createComment.bind(null, id);
-  const toggleSaveForPost = toggleSave.bind(null, id);
+  const toggleSaveForPost = toggleSave.bind(null, id, `/network/${id}`);
 
   function timeAgo(dateStr: string) {
     const diffMs = Date.now() - new Date(dateStr).getTime();
