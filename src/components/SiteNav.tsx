@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { NavIcon } from "@/components/NavIcon";
 import { navFor } from "@/lib/navLinks";
+import { signOut } from "@/app/auth/actions";
 
 /**
  * Site header. Nav sits on the left beside the logo (the app reads
@@ -83,6 +84,14 @@ export function SiteNav({
                 >
                   My Profile
                 </Link>
+                <form action={signOut} className="hidden sm:block">
+                  <button
+                    type="submit"
+                    className="text-sm font-semibold text-slate-500 transition hover:text-slate-900"
+                  >
+                    Log out
+                  </button>
+                </form>
                 <Link
                   href="/network/ask"
                   className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 sm:px-5"
@@ -203,12 +212,22 @@ export function SiteNav({
               </Link>
             )}
             {isSignedIn ? (
-              <Link
-                href="/profile"
-                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-center text-sm font-semibold text-slate-700"
-              >
-                My Profile
-              </Link>
+              <>
+                <Link
+                  href="/profile"
+                  className="rounded-xl border border-neutral-300 px-4 py-2.5 text-center text-sm font-semibold text-slate-700"
+                >
+                  My Profile
+                </Link>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl px-4 py-2.5 text-center text-sm font-semibold text-slate-500 transition hover:bg-neutral-50 hover:text-slate-900"
+                  >
+                    Log out
+                  </button>
+                </form>
+              </>
             ) : (
               <Link
                 href="/signup"

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 const AREAS = [
   "New Cairo",
@@ -79,10 +80,11 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${
+      aria-pressed={selected}
+      className={`rounded-xl border px-4 py-3.5 text-left text-sm font-medium transition ${
         selected
-          ? "border-violet-600 bg-violet-50 text-violet-700 ring-1 ring-violet-600"
-          : "border-neutral-300 text-neutral-800 hover:border-neutral-400"
+          ? "border-violet-500 bg-violet-50 text-violet-700 shadow-[0_0_0_1px_rgb(139_92_246)]"
+          : "border-neutral-200 text-slate-700 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-sm"
       }`}
     >
       {label}
@@ -142,22 +144,23 @@ export default function OnboardingWizard({
 
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-3 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl">
+      <div className="flex flex-col items-center gap-3 py-4 text-center">
+        <Logo className="mb-2 justify-center" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">
           ✅
         </div>
-        <h1 className="text-xl font-semibold text-neutral-900">
+        <h1 className="text-xl font-extrabold text-slate-900">
           You&apos;re all set!
         </h1>
-        <p className="text-sm text-neutral-600">
-          We saved your preferences. Once schools and parent conversations
-          are live, we&apos;ll show you the ones that match.
+        <p className="text-sm leading-relaxed text-slate-600">
+          We saved your preferences. We&apos;ll use them to surface the
+          schools and conversations that match.
         </p>
         <a
-          href="/network"
-          className="mt-2 rounded-xl bg-violet-600 px-4 py-3 text-sm font-medium text-white hover:bg-violet-700"
+          href="/"
+          className="mt-3 w-full rounded-xl bg-violet-600 px-4 py-3.5 text-sm font-bold text-white transition hover:bg-violet-700"
         >
-          Explore the Parent Network
+          Explore EduCircle
         </a>
       </div>
     );
@@ -165,28 +168,41 @@ export default function OnboardingWizard({
 
   return (
     <div className="flex flex-col gap-6">
+      <Logo className="justify-center" />
+
       <div className="flex items-center gap-3">
-        {step > 1 && (
-          <button
-            type="button"
-            onClick={() => setStep(step - 1)}
-            className="text-neutral-500"
-            aria-label="Back"
+        <button
+          type="button"
+          onClick={() => setStep(step - 1)}
+          disabled={step === 1}
+          className="shrink-0 rounded-lg p-1 text-slate-400 transition enabled:hover:bg-neutral-100 enabled:hover:text-slate-700 disabled:opacity-0"
+          aria-label="Back"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            ←
-          </button>
-        )}
-        <div className="flex flex-1 gap-1">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <div className="flex flex-1 gap-1.5">
           {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((i) => (
             <div
               key={i}
-              className={`h-1.5 flex-1 rounded-full ${
+              className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
                 i <= step ? "bg-violet-600" : "bg-neutral-200"
               }`}
             />
           ))}
         </div>
-        <span className="text-xs text-neutral-500">
+
+        <span className="shrink-0 text-xs font-medium text-slate-400">
           {step} of {TOTAL_STEPS}
         </span>
       </div>
@@ -194,10 +210,10 @@ export default function OnboardingWizard({
       {step === 1 && (
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
               1. Where are you looking?
             </h1>
-            <p className="text-sm text-neutral-500">
+            <p className="mt-1 text-sm text-slate-500">
               You can select more than one area.
             </p>
           </div>
@@ -222,7 +238,7 @@ export default function OnboardingWizard({
       {step === 2 && (
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
               2. Which year will your child enter?
             </h1>
           </div>
@@ -242,10 +258,10 @@ export default function OnboardingWizard({
       {step === 3 && (
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
               3. What curriculum are you considering?
             </h1>
-            <p className="text-sm text-neutral-500">Select all that apply.</p>
+            <p className="mt-1 text-sm text-slate-500">Select all that apply.</p>
           </div>
           <div className="grid grid-cols-1 gap-2">
             {CURRICULA.map((c) => (
@@ -268,10 +284,10 @@ export default function OnboardingWizard({
       {step === 4 && (
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
               4. What matters most to you?
             </h1>
-            <p className="text-sm text-neutral-500">
+            <p className="mt-1 text-sm text-slate-500">
               Select up to {MAX_PRIORITIES}.
             </p>
           </div>
@@ -296,10 +312,10 @@ export default function OnboardingWizard({
       {step === 5 && (
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
               5. What&apos;s your situation?
             </h1>
-            <p className="text-sm text-neutral-500">
+            <p className="mt-1 text-sm text-slate-500">
               This helps us show you the most relevant conversations.
             </p>
           </div>
@@ -319,16 +335,16 @@ export default function OnboardingWizard({
       {step === 6 && (
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">
               6. Add your child (optional)
             </h1>
-            <p className="text-sm text-neutral-500">
+            <p className="mt-1 text-sm text-slate-500">
               This connects you to their school&apos;s community. You can
               skip this and add it later from your profile.
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-700">
+            <label className="text-sm font-semibold text-slate-700">
               First name
             </label>
             <input
@@ -337,11 +353,11 @@ export default function OnboardingWizard({
                 setChild((c) => ({ ...c, first_name: e.target.value }))
               }
               placeholder="Omar"
-              className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-700">
+            <label className="text-sm font-semibold text-slate-700">
               School
             </label>
             <select
@@ -349,7 +365,7 @@ export default function OnboardingWizard({
               onChange={(e) =>
                 setChild((c) => ({ ...c, school_id: e.target.value }))
               }
-              className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
             >
               <option value="">Not listed / not decided yet</option>
               {schools.map((school) => (
@@ -360,7 +376,7 @@ export default function OnboardingWizard({
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-700">
+            <label className="text-sm font-semibold text-slate-700">
               Year / grade
             </label>
             <input
@@ -369,7 +385,7 @@ export default function OnboardingWizard({
                 setChild((c) => ({ ...c, academic_year: e.target.value }))
               }
               placeholder={answers.year || "Year 2"}
-              className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-violet-600"
+              className="mt-1.5 w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
             />
           </div>
         </div>
@@ -387,7 +403,7 @@ export default function OnboardingWizard({
           }
           step < TOTAL_STEPS ? setStep(step + 1) : finish();
         }}
-        className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-700 disabled:opacity-40"
+        className="rounded-xl bg-violet-600 px-4 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-violet-600"
       >
         {step < TOTAL_STEPS
           ? "Continue"
