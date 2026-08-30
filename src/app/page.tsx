@@ -731,14 +731,17 @@ export default async function HomePage({
                           {c.initial}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-1">
-                            <span className="truncate text-sm font-bold text-slate-900">
+                          <span className="flex items-start gap-1">
+                            {/* School names run long ("International School
+                                of Choueifat"), so wrap to two lines rather
+                                than cutting the name off mid-word. */}
+                            <span className="line-clamp-2 text-sm font-bold leading-snug text-slate-900">
                               {c.name}
                             </span>
                             {c.moderator && (
                               <svg
                                 viewBox="0 0 24 24"
-                                className="h-3.5 w-3.5 shrink-0 text-violet-600"
+                                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-600"
                                 aria-label="You moderate this"
                               >
                                 <path
@@ -781,7 +784,7 @@ export default async function HomePage({
                             {s.name.charAt(0)}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-bold text-slate-900">
+                            <span className="block line-clamp-2 text-sm font-bold leading-snug text-slate-900">
                               {s.name}
                             </span>
                             <span className="block text-xs text-slate-500">

@@ -78,14 +78,19 @@ const GROUP_MESSAGES = [
   "Perfect, thank you both.",
 ];
 
+// title, body, topic — the topic is what the home page ranks trending
+// topics from, so demo questions carry one just like real ones will.
 const SCHOOL_POSTS = [
-  ["How is the homework load in Year 3?", "Trying to plan ahead for next year — how much did it actually change?"],
-  ["Anyone using the school bus from Rehab?", "Considering switching from private transport. How reliable is the timing?"],
+  ["How is the homework load in Year 3?", "Trying to plan ahead for next year — how much did it actually change?", "curriculum"],
+  ["Anyone using the school bus from Rehab?", "Considering switching from private transport. How reliable is the timing?", "transport"],
 ];
 
 const NETWORK_POSTS = [
-  ["Which curriculum suits a child moving from a national school?", "We are relocating and my son has only studied the national curriculum so far."],
-  ["How early should we apply for KG1?", "Everyone tells me a different answer and I'm getting confused."],
+  ["Which curriculum suits a child moving from a national school?", "We are relocating and my son has only studied the national curriculum so far.", "curriculum"],
+  ["How early should we apply for KG1?", "Everyone tells me a different answer and I'm getting confused.", "admissions"],
+  ["What should we budget for a British school in New Cairo?", "Trying to work out the real yearly total including buses and books.", "fees"],
+  ["Is it worth moving schools mid-year?", "We are relocating across Cairo and unsure whether to wait for September.", "moving"],
+  ["How do you choose between two schools that both look fine?", "Both have good facilities. What actually made the difference for you?", "choosing"],
 ];
 
 async function findDemoUsers() {
@@ -277,18 +282,19 @@ async function seed() {
 
   console.log("\nPosting demo questions...");
   for (let i = 0; i < NETWORK_POSTS.length; i++) {
-    const [title, body] = NETWORK_POSTS[i];
+    const [title, body, topic] = NETWORK_POSTS[i];
     await db.from("posts").insert({
       author_id: created[i % created.length].userId,
       school_id: null,
       type: "question",
       title: `${TAG} ${title}`,
       body,
+      tags: topic ? [topic] : [],
       status: "published",
     });
   }
   for (let i = 0; i < SCHOOL_POSTS.length; i++) {
-    const [title, body] = SCHOOL_POSTS[i];
+    const [title, body, topic] = SCHOOL_POSTS[i];
     const p = created[i % created.length];
     await db.from("posts").insert({
       author_id: p.userId,
@@ -296,7 +302,7 @@ async function seed() {
       type: "question",
       title: `${TAG} ${title}`,
       body,
-      tags: ["curriculum"],
+      tags: topic ? [topic] : [],
       status: "published",
     });
   }
