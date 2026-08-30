@@ -18,28 +18,40 @@ const DEMO_EMAIL_DOMAIN = "demo.educircle.test";
 const DEMO_PASSWORD = "demo-educircle-2026";
 const TAG = "[TEST]";
 
+// Reads both values from .env.local, the same file the app uses, so the key
+// only has to be stored once. An environment variable still wins, for CI or
+// a one-off run against another project.
 function loadEnv() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (url && key) return { url, key };
-
-  let fileUrl = url;
+  const fromFile = {};
   try {
-    for (const line of readFileSync(".env.local", "utf8").split("\n")) {
-      const [k, ...rest] = line.split("=");
-      if (k?.trim() === "NEXT_PUBLIC_SUPABASE_URL") fileUrl = rest.join("=").trim();
+    for (const line of readFileSync(".env.local", "utf8").split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      const k = trimmed.slice(0, eq).trim();
+      // Strip surrounding quotes if the value was written with them.
+      const v = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+      if (v) fromFile[k] = v;
     }
   } catch {}
 
-  if (!fileUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL not found");
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL || fromFile.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    fromFile.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url) throw new Error("NEXT_PUBLIC_SUPABASE_URL not found in .env.local");
   if (!key) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is required.\n" +
-        "Find it in Supabase > Project Settings > API > service_role.\n" +
-        "Run:  SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/seed-demo.mjs",
+      "SUPABASE_SERVICE_ROLE_KEY not found.\n" +
+        "Add it to .env.local as:  SUPABASE_SERVICE_ROLE_KEY=<key>\n" +
+        "Find the key in Supabase > Project Settings > API > service_role.\n" +
+        "Run this from the project root (D:\\edu-app), where .env.local lives.",
     );
   }
-  return { url: fileUrl, key };
+  return { url, key };
 }
 
 const { url, key } = loadEnv();
