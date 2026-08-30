@@ -15,3 +15,136 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* ---------------------------------------------------------------
+   Motion. Everything here is CSS-only so it survives server
+   rendering with no hydration flash and no animation library.
+   --------------------------------------------------------------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(12px, -18px) scale(1.06);
+  }
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes sheen {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+/* Staggered entrance. `.rise` starts hidden and settles into place;
+   the delay utilities let a row of cards arrive one after another. */
+.rise {
+  opacity: 0;
+  animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.rise-1 {
+  animation-delay: 0.06s;
+}
+.rise-2 {
+  animation-delay: 0.12s;
+}
+.rise-3 {
+  animation-delay: 0.18s;
+}
+.rise-4 {
+  animation-delay: 0.24s;
+}
+.rise-5 {
+  animation-delay: 0.3s;
+}
+.rise-6 {
+  animation-delay: 0.36s;
+}
+
+/* Background blobs behind the hero. */
+.drift {
+  animation: drift 14s ease-in-out infinite;
+}
+.drift-slow {
+  animation: drift 22s ease-in-out infinite reverse;
+}
+.float-soft {
+  animation: float-soft 6s ease-in-out infinite;
+}
+
+/* Gradient that slides across the headline accent. */
+.sheen {
+  background-size: 200% auto;
+  animation: sheen 6s linear infinite alternate;
+}
+
+/* Cards that lift toward the pointer. */
+.lift {
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+.lift:hover {
+  transform: translateY(-4px);
+}
+
+/* Underline that grows from the left on hover. */
+.grow-underline {
+  position: relative;
+}
+.grow-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  height: 2px;
+  width: 100%;
+  background: #7c3aed;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.grow-underline:hover::after,
+.grow-underline[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .drift,
+  .drift-slow,
+  .float-soft,
+  .sheen {
+    animation: none;
+    opacity: 1;
+  }
+  .lift {
+    transition: none;
+  }
+}
