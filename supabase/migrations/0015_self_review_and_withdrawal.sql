@@ -64,29 +64,3 @@ create policy "users withdraw their own verification request"
   on public.verification_requests for delete
   to authenticated
   using (user_id = auth.uid());
-
-
--- =========================================================
--- Cleanup: rows left behind by the security probes
--- =========================================================
--- The probe accounts could not delete these themselves, which is finding 2
--- above. Safe to run: it only touches @demo.educircle.test accounts.
-
-delete from public.school_memberships m
-using auth.users u
-where m.user_id = u.id
-  and u.email like '%@demo.educircle.test'
-  and m.school_id in (
-    select id from public.schools
-    where name like 'British International School Cairo%'
-       or name like 'Cairo American College%'
-  )
-  and m.user_id = (select id from auth.users where email = 'heba@demo.educircle.test');
-
-delete from public.verification_requests r
-using auth.users u
-where r.user_id = u.id
-  and u.email like '%@demo.educircle.test';
-
-delete from public.posts
-where title like '[SECTEST%';
