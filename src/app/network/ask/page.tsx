@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/currentUser";
 import { PageShell, PageHeading, Card } from "@/components/PageShell";
+import { NETWORK_CATEGORIES } from "@/lib/schoolCategories";
 import { createQuestion } from "../actions";
 
 export const metadata = { title: "Ask a Question · EduCircle" };
@@ -59,6 +60,23 @@ export default async function AskQuestionPage({
               placeholder="Add the context that would help someone answer well..."
               className={`mt-1.5 ${field}`}
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-slate-700">
+              Topic
+            </label>
+            <select name="category" className={`mt-1.5 ${field}`}>
+              <option value="">Choose a topic (optional)</option>
+              {NETWORK_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Helps the right parents find your question.
+            </p>
           </div>
 
           <div className="rounded-2xl border border-dashed border-neutral-300 p-4">

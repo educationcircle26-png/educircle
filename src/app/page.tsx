@@ -190,7 +190,7 @@ export default async function HomePage({
 
   // ---- everything below is real data; nothing here is placeholder ----
 
-  const [{ data: posts }, { data: schools }] = await Promise.all([
+  const [{ data: posts }, { data: schools }, { data: stats }] = await Promise.all([
     supabase
       .from("posts_with_author")
       .select(
@@ -200,7 +200,13 @@ export default async function HomePage({
       .order("created_at", { ascending: false })
       .limit(30),
     supabase.from("schools").select("id, name, area, curriculum").order("name"),
+    // Aggregate-only counts, readable by everyone (migration 0017) — the
+    // membership rows they're derived from are not.
+    supabase.from("school_stats").select("school_id, parents, discussions"),
   ]);
+
+  const statOf = (schoolId: string) =>
+    (stats ?? []).find((s) => s.school_id === schoolId);
 
   const postIds = (posts ?? []).map((p) => p.id);
 
@@ -701,7 +707,9 @@ export default async function HomePage({
             <section className="rise rise-2 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-extrabold text-slate-900">
-                  {user ? "My communities" : "Schools on EduCircle"}
+                  {user && communities.length > 0
+                    ? "My communities"
+                    : "Communities"}
                 </h2>
                 <Link
                   href="/schools"
@@ -761,28 +769,56 @@ export default async function HomePage({
                         </svg>
                       </Link>
                     ))
-                  : (schools ?? []).slice(0, 4).map((s) => (
-                      <Link
-                        key={s.id}
-                        href={`/schools/${s.id}`}
-                        className="lift flex items-center gap-3 rounded-2xl border border-neutral-200 p-3 hover:border-violet-300"
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
-                          {s.name.charAt(0)}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-bold text-slate-900">
-                            {s.name}
+                  : (schools ?? []).slice(0, 4).map((s) => {
+                      const stat = statOf(s.id);
+                      return (
+                        <Link
+                          key={s.id}
+                          href={`/schools/${s.id}`}
+                          className="lift group flex items-center gap-3 rounded-2xl border border-neutral-200 p-3 hover:border-violet-300"
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
+                            {s.name.charAt(0)}
                           </span>
-                          <span className="text-xs text-slate-500">
-                            {s.area ?? "Egypt"}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-bold text-slate-900">
+                              {s.name}
+                            </span>
+                            <span className="block text-xs text-slate-500">
+                              {s.area ?? "Egypt"}
+                              {stat && stat.parents > 0 && (
+                                <>
+                                  {" · "}
+                                  {stat.parents}{" "}
+                                  {stat.parents === 1 ? "parent" : "parents"}
+                                </>
+                              )}
+                            </span>
+                            {stat && stat.discussions > 0 && (
+                              <span className="mt-0.5 inline-block rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                                {stat.discussions}{" "}
+                                {stat.discussions === 1
+                                  ? "discussion"
+                                  : "discussions"}
+                              </span>
+                            )}
                           </span>
-                        </span>
-                      </Link>
-                    ))}
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          >
+                            <path d="M9 6l6 6-6 6" />
+                          </svg>
+                        </Link>
+                      );
+                    })}
 
                 {user && communities.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-neutral-300 p-5 text-center">
+                  <div className="mt-1 rounded-2xl border border-dashed border-neutral-300 p-5 text-center">
                     <p className="text-xs text-slate-600">
                       You haven&apos;t joined a school community yet.
                     </p>
@@ -797,19 +833,20 @@ export default async function HomePage({
               </div>
             </section>
 
-            {trending.length > 0 && (
-              <section className="rise rise-3 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-extrabold text-slate-900">
-                    Trending topics
-                  </h2>
-                  <Link
-                    href="/network"
-                    className="text-xs font-semibold text-violet-600 hover:underline"
-                  >
-                    View all
-                  </Link>
-                </div>
+            <section className="rise rise-3 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-extrabold text-slate-900">
+                  Trending topics
+                </h2>
+                <Link
+                  href="/network"
+                  className="text-xs font-semibold text-violet-600 hover:underline"
+                >
+                  View all
+                </Link>
+              </div>
+
+              {trending.length > 0 ? (
                 <div className="mt-4 flex flex-col gap-1">
                   {trending.map(([tag, count]) => (
                     <Link
@@ -827,8 +864,23 @@ export default async function HomePage({
                     </Link>
                   ))}
                 </div>
-              </section>
-            )}
+              ) : (
+                // Ranked from real tag use, so it stays empty until questions
+                // carry topics — better than showing invented ones.
+                <div className="mt-4 rounded-2xl border border-dashed border-neutral-300 p-5 text-center">
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    Topics appear here once parents start tagging their
+                    questions.
+                  </p>
+                  <Link
+                    href={user ? "/network/ask" : "/signup"}
+                    className="mt-3 inline-block rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-700"
+                  >
+                    {user ? "Ask a Question" : "Join to ask"}
+                  </Link>
+                </div>
+              )}
+            </section>
 
             {!user && (
               <section className="rise rise-4 overflow-hidden rounded-3xl bg-slate-900 p-6 text-white shadow-sm">

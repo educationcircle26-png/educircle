@@ -17,6 +17,7 @@ export async function createQuestion(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const isAnonymous = formData.get("is_anonymous") === "on";
+  const category = String(formData.get("category") ?? "").trim();
   const options = [1, 2, 3, 4]
     .map((i) => String(formData.get(`option_${i}`) ?? "").trim())
     .filter(Boolean);
@@ -34,6 +35,7 @@ export async function createQuestion(formData: FormData) {
       type: isPoll ? "poll" : "question",
       title,
       body,
+      tags: category ? [category] : [],
       metadata: isPoll ? { options } : {},
       isAnonymous,
     });

@@ -21,19 +21,17 @@ export default async function SchoolPage({
     notFound();
   }
 
-  // Real counts for this school — omitted entirely rather than guessed.
-  const [{ count: parents }, { count: questions }] = await Promise.all([
-    supabase
-      .from("school_memberships")
-      .select("*", { count: "exact", head: true })
-      .eq("school_id", id)
-      .eq("status", "approved"),
-    supabase
-      .from("posts")
-      .select("*", { count: "exact", head: true })
-      .eq("school_id", id)
-      .eq("status", "published"),
-  ]);
+  // From the aggregate view, so a signed-out visitor sees the real figures.
+  // Counting the underlying tables directly returns zero for them, since
+  // memberships and school posts are members-only.
+  const { data: stat } = await supabase
+    .from("school_stats")
+    .select("parents, discussions")
+    .eq("school_id", id)
+    .maybeSingle();
+
+  const parents = stat?.parents ?? 0;
+  const questions = stat?.discussions ?? 0;
 
   return (
     <PageShell signedIn={!!user} isAdmin={isAdmin}>
