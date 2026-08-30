@@ -47,6 +47,10 @@ const db = createClient(url, key, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// Demo parents are all ordinary parents. Site admin belongs on a real
+// account, not one that `--clean` deletes — promote yours with:
+//   node scripts/seed-demo.mjs --make-admin you@example.com
+//
 // first_name, display_name, is_admin, school index, year, class
 const PARENTS = [
   ["Heba", "Heba M.", false, 0, "Year 3", "3A"],
@@ -58,7 +62,7 @@ const PARENTS = [
   ["Khaled", "Khaled F.", false, 1, "Year 6", "6B"],
   ["Dina", "Dina Z.", false, 2, "Year 4", "4A"],
   ["Omar", "Omar N.", false, 2, "Year 4", "4A"],
-  ["Salma", "Salma E.", true, 0, "Year 3", "3A"],
+  ["Salma", "Salma E.", false, 0, "Year 3", "3A"],
 ];
 
 const CHILDREN = [
@@ -95,6 +99,37 @@ async function findDemoUsers() {
     page++;
   }
   return found;
+}
+
+async function makeAdmin(email) {
+  const users = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    users.push(...data.users);
+    if (data.users.length < 1000) break;
+    page++;
+  }
+
+  const user = users.find(
+    (u) => u.email?.toLowerCase() === email.toLowerCase(),
+  );
+  if (!user) {
+    throw new Error(
+      `No account found for ${email}.\n` +
+        `Sign in to the site once with that address first, then re-run this.`,
+    );
+  }
+
+  const { error } = await db
+    .from("profiles")
+    .update({ is_admin: true })
+    .eq("id", user.id);
+  if (error) throw error;
+
+  console.log(`${email} is now a site admin.`);
+  console.log("The Admin button appears in the header next time they load a page.");
 }
 
 async function clean() {
@@ -276,14 +311,24 @@ async function seed() {
   });
   console.log(`  + ${NETWORK_POSTS.length + SCHOOL_POSTS.length} published, 1 pending review`);
 
-  const admin = created.find((p) => p.isAdmin);
   console.log("\n─────────────────────────────────────────");
   console.log("Demo accounts are ready. Password for all:");
   console.log(`  ${DEMO_PASSWORD}`);
-  if (admin) console.log(`Admin login: ${admin.email}`);
-  console.log("Remove everything again with:  node scripts/seed-demo.mjs --clean");
+  console.log("\nThese are all ordinary parents. To reach the admin dashboard,");
+  console.log("promote your own real account:");
+  console.log("  node scripts/seed-demo.mjs --make-admin you@example.com");
+  console.log("\nRemove the demo data again with:");
+  console.log("  node scripts/seed-demo.mjs --clean");
   console.log("─────────────────────────────────────────");
 }
 
-const isClean = process.argv.includes("--clean");
-await (isClean ? clean() : seed());
+const adminFlag = process.argv.indexOf("--make-admin");
+if (adminFlag !== -1) {
+  const email = process.argv[adminFlag + 1];
+  if (!email) throw new Error("Usage: --make-admin you@example.com");
+  await makeAdmin(email);
+} else if (process.argv.includes("--clean")) {
+  await clean();
+} else {
+  await seed();
+}
