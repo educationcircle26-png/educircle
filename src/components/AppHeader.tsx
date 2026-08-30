@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { signOut } from "@/app/auth/actions";
 import { Logo } from "./Logo";
 
 export async function AppHeader() {
@@ -45,9 +46,19 @@ export async function AppHeader() {
           </Link>
         )}
         {user ? (
-          <Link href="/profile" className="text-sm text-neutral-700">
-            My Profile
-          </Link>
+          <>
+            <Link href="/profile" className="text-sm text-neutral-700">
+              My Profile
+            </Link>
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="text-sm text-neutral-500 transition hover:text-neutral-900"
+              >
+                Log out
+              </button>
+            </form>
+          </>
         ) : (
           <Link href="/login" className="text-sm text-neutral-700">
             Log in

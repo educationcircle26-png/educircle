@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ParentsIllustration } from "@/components/ParentsIllustration";
 import { Logo } from "@/components/Logo";
@@ -84,6 +85,7 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -92,13 +94,32 @@ export default function LoginPage() {
   );
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Filling in a password signs in directly; leaving it blank falls back to
+  // the emailed link, which is still the only route for accounts that were
+  // created through Google and never set one.
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setStatus("sending");
     setErrorMessage("");
 
-    // Password sign-in isn't wired up yet — this still sends an email link.
     const supabase = createClient();
+
+    if (password) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        setStatus("error");
+        setErrorMessage(error.message);
+        return;
+      }
+      // refresh() so the server components pick up the new session cookie.
+      router.replace("/network");
+      router.refresh();
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -227,11 +248,10 @@ export default function LoginPage() {
                   </span>
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password (coming soon)"
+                    placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled
-                    className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-3 pl-10 pr-10 text-sm text-neutral-400 outline-none"
+                    className="w-full rounded-xl border border-neutral-300 py-3 pl-10 pr-10 text-sm text-neutral-900 outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
                   />
                   <button
                     type="button"
@@ -243,20 +263,21 @@ export default function LoginPage() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center gap-2 text-neutral-600">
-                    <input type="checkbox" className="h-4 w-4" />
-                    Remember me
-                  </label>
-                  <span className="text-neutral-400">Forgot password?</span>
-                </div>
+                <p className="text-xs text-neutral-500">
+                  Leave the password empty and we&apos;ll email you a sign-in
+                  link instead.
+                </p>
 
                 <button
                   type="submit"
                   disabled={status === "sending"}
                   className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
                 >
-                  {status === "sending" ? "Sending..." : "Log In"}
+                  {status === "sending"
+                    ? password
+                      ? "Signing in..."
+                      : "Sending link..."
+                    : "Log In"}
                 </button>
                 {status === "error" && (
                   <p className="text-sm text-red-600">{errorMessage}</p>
