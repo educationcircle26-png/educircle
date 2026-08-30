@@ -60,9 +60,17 @@ export async function AppHeader() {
             </form>
           </>
         ) : (
-          <Link href="/login" className="text-sm text-neutral-700">
-            Log in
-          </Link>
+          <>
+            <Link href="/login" className="text-sm text-neutral-700">
+              Log in
+            </Link>
+            <Link
+              href="/signup"
+              className="rounded-lg border border-violet-300 px-3 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-50"
+            >
+              Sign up
+            </Link>
+          </>
         )}
       </nav>
     </header>

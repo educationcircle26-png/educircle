@@ -89,7 +89,7 @@ export default async function HomePage() {
             Log in
           </Link>
           <Link
-            href="/login"
+            href="/signup"
             className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700 hover:-translate-y-0.5"
           >
             Join EduCircle
@@ -180,7 +180,7 @@ export default async function HomePage() {
                       </div>
                       {isTeaser && (
                         <Link
-                          href="/login"
+                          href="/signup"
                           className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/40"
                         >
                           <svg
@@ -211,7 +211,7 @@ export default async function HomePage() {
             ) : (
               <p className="mt-7 text-slate-500">
                 No questions yet.{" "}
-                <Link href="/login" className="text-violet-600">
+                <Link href="/signup" className="text-violet-600">
                   Be the first to ask
                 </Link>
                 .
