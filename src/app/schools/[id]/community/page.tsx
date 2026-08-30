@@ -158,9 +158,8 @@ export default async function SchoolCommunityPage({
                 Request a review
               </h2>
               <p className="mt-1 text-xs text-neutral-500">
-                No code or document handy — a moderator will follow up. If
-                you&apos;re the first parent from this school, you become its
-                moderator automatically.
+                No code or document handy — a moderator will review your
+                request and follow up.
               </p>
               <button
                 type="submit"

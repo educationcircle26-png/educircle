@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdminPage } from "@/lib/requireAdmin";
-import { decideMembership } from "../actions";
+import { decideMembership, setMembershipRole } from "../actions";
 
 export default async function AdminSchoolsPage() {
   const { supabase } = await requireAdminPage();
@@ -16,28 +16,46 @@ export default async function AdminSchoolsPage() {
 
   const { data: approved } = await supabase
     .from("school_memberships")
-    .select("school_id")
+    .select("id, user_id, school_id, role")
     .eq("status", "approved");
 
   const approvedBySchool = new Map<string, number>();
+  const moderatorsBySchool = new Map<string, number>();
   for (const m of approved ?? []) {
     approvedBySchool.set(
       m.school_id,
       (approvedBySchool.get(m.school_id) ?? 0) + 1,
     );
+    if (m.role === "moderator") {
+      moderatorsBySchool.set(
+        m.school_id,
+        (moderatorsBySchool.get(m.school_id) ?? 0) + 1,
+      );
+    }
   }
 
-  const requesterIds = (pending ?? []).map((p) => p.user_id);
-  const { data: requesters } =
-    requesterIds.length > 0
+  // Approved members at schools that still have nobody in charge — these are
+  // the candidates an admin can appoint.
+  const moderatorCandidates = (approved ?? []).filter(
+    (m) => (moderatorsBySchool.get(m.school_id) ?? 0) === 0,
+  );
+
+  const peopleIds = [
+    ...new Set([
+      ...(pending ?? []).map((p) => p.user_id),
+      ...moderatorCandidates.map((m) => m.user_id),
+    ]),
+  ];
+  const { data: people } =
+    peopleIds.length > 0
       ? await supabase
           .from("profiles")
           .select("id, display_name")
-          .in("id", requesterIds)
+          .in("id", peopleIds)
       : { data: [] as { id: string; display_name: string | null }[] };
 
   const nameOf = (uid: string) =>
-    requesters?.find((r) => r.id === uid)?.display_name || "A parent";
+    people?.find((r) => r.id === uid)?.display_name || "A parent";
   const schoolNameOf = (sid: string) =>
     schools?.find((s) => s.id === sid)?.name || "Unknown school";
 
@@ -106,6 +124,48 @@ export default async function AdminSchoolsPage() {
 
       <section>
         <h2 className="text-sm font-bold text-slate-900">
+          Appoint a moderator ({moderatorCandidates.length})
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          These schools have verified parents but nobody moderating yet. A
+          moderator approves join requests and can read that school&apos;s
+          uploaded verification documents, so appoint deliberately.
+        </p>
+        <div className="mt-3 flex flex-col gap-2">
+          {moderatorCandidates.length > 0 ? (
+            moderatorCandidates.map((m) => (
+              <div
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 p-4"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {nameOf(m.user_id)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {schoolNameOf(m.school_id)}
+                  </p>
+                </div>
+                <form action={setMembershipRole.bind(null, m.id, "moderator")}>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+                  >
+                    Make moderator
+                  </button>
+                </form>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-dashed border-neutral-300 p-6 text-center text-sm text-slate-600">
+              Every school with members has a moderator.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-sm font-bold text-slate-900">
           Schools ({schools?.length ?? 0})
         </h2>
         <div className="mt-3 overflow-x-auto rounded-2xl border border-neutral-200">
@@ -115,6 +175,7 @@ export default async function AdminSchoolsPage() {
                 <th className="px-4 py-2.5 font-semibold">School</th>
                 <th className="px-4 py-2.5 font-semibold">Area</th>
                 <th className="px-4 py-2.5 font-semibold">Verified parents</th>
+                <th className="px-4 py-2.5 font-semibold">Moderators</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
@@ -129,6 +190,17 @@ export default async function AdminSchoolsPage() {
                   </td>
                   <td className="px-4 py-2.5 text-slate-600">
                     {approvedBySchool.get(school.id) ?? 0}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {moderatorsBySchool.get(school.id) ? (
+                      <span className="text-slate-600">
+                        {moderatorsBySchool.get(school.id)}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                        none
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <Link

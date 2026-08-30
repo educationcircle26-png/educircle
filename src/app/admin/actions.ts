@@ -67,3 +67,17 @@ export async function decideMembership(
     .eq("id", membershipId);
   redirect("/admin/schools");
 }
+
+// Schools no longer get a moderator by whoever joined first, so appointing
+// one is an admin action.
+export async function setMembershipRole(
+  membershipId: string,
+  role: "moderator" | "verified_parent",
+) {
+  const { supabase } = await requireAdmin();
+  await supabase
+    .from("school_memberships")
+    .update({ role })
+    .eq("id", membershipId);
+  redirect("/admin/schools");
+}

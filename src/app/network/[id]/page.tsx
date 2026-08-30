@@ -111,15 +111,25 @@ export default async function QuestionPage({
   let pollVoteCounts: number[] = [];
   let myPollVoteIndex: number | null = null;
   if (isPoll) {
-    const { data: pollVotes } = await supabase
-      .from("poll_votes")
-      .select("user_id, option_index")
+    // Counts come from the aggregate view; poll_votes itself only ever
+    // returns the caller's own row, so nobody can see how others voted.
+    const { data: results } = await supabase
+      .from("poll_results")
+      .select("option_index, votes")
       .eq("post_id", id);
     pollVoteCounts = pollOptions.map(
-      (_, i) => (pollVotes ?? []).filter((v) => v.option_index === i).length,
+      (_, i) =>
+        (results ?? []).find((r) => r.option_index === i)?.votes ?? 0,
     );
-    const mine = (pollVotes ?? []).find((v) => v.user_id === user?.id);
-    myPollVoteIndex = mine ? mine.option_index : null;
+    if (user) {
+      const { data: mine } = await supabase
+        .from("poll_votes")
+        .select("option_index")
+        .eq("post_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      myPollVoteIndex = mine ? mine.option_index : null;
+    }
   }
   const pollTotalVotes = pollVoteCounts.reduce((a, b) => a + b, 0);
 
