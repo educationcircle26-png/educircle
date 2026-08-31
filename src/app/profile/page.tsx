@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SiteNav } from "@/components/SiteNav";
 import { ProfileRail, type RailLink } from "@/components/profile/ProfileRail";
 import { FollowButton } from "@/components/FollowButton";
+import { setChildPhoto } from "./actions";
 import { categoryLabel } from "@/lib/schoolCategories";
 
 export const metadata = { title: "My Profile · EduCircle" };
@@ -59,7 +60,7 @@ export default async function ProfilePage({
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
       .from("children")
-      .select("id, first_name, academic_year, class_name, school_id")
+      .select("id, first_name, academic_year, class_name, school_id, photo_path")
       .eq("parent_id", user.id)
       .order("created_at"),
     supabase
@@ -87,6 +88,21 @@ export default async function ProfilePage({
       .select("group_id")
       .eq("user_id", user.id),
   ]);
+
+  // Child photos live in a private bucket, so each one needs a short-lived
+  // signed link rather than a stored URL.
+  const childPhotos = new Map<string, string>();
+  const photoPaths = (children ?? [])
+    .map((c) => c.photo_path)
+    .filter((p): p is string => !!p);
+  if (photoPaths.length > 0) {
+    const { data: signed } = await supabase.storage
+      .from("child-photos")
+      .createSignedUrls(photoPaths, 60 * 60);
+    for (const s of signed ?? []) {
+      if (s.signedUrl && s.path) childPhotos.set(s.path, s.signedUrl);
+    }
+  }
 
   // Who this parent follows, and their public display details.
   const { data: followRows } = await supabase
@@ -419,9 +435,18 @@ export default async function ProfilePage({
             <section className="rise rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col gap-6 lg:flex-row">
                 <div className="flex min-w-0 flex-1 gap-5">
-                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-3xl font-bold text-white">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
+                  {profile?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={profile.avatar_url}
+                      alt=""
+                      className="h-24 w-24 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-3xl font-bold text-white">
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -533,28 +558,62 @@ export default async function ProfilePage({
 
                   <div className="mt-3 flex flex-col gap-3">
                     {children && children.length > 0 ? (
-                      children.map((c) => (
-                        <div key={c.id} className="flex items-center gap-3">
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-bold text-sky-700">
-                            {(c.first_name ?? "?").charAt(0).toUpperCase()}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-slate-900">
-                              {c.first_name || "Child"}
-                            </p>
-                            <p className="truncate text-xs text-slate-500">
-                              {[c.academic_year, c.class_name]
-                                .filter(Boolean)
-                                .join(" · ") || "No year set"}
-                            </p>
-                            {schoolName(c.school_id) && (
-                              <p className="truncate text-xs text-slate-400">
-                                {schoolName(c.school_id)}
-                              </p>
+                      children.map((c) => {
+                        const photo = c.photo_path
+                          ? childPhotos.get(c.photo_path)
+                          : null;
+                        return (
+                          <div key={c.id} className="flex items-center gap-3">
+                            {photo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={photo}
+                                alt=""
+                                className="h-11 w-11 shrink-0 rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sm font-bold text-sky-700">
+                                {(c.first_name ?? "?").charAt(0).toUpperCase()}
+                              </span>
                             )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-bold text-slate-900">
+                                {c.first_name || "Child"}
+                              </p>
+                              <p className="truncate text-xs text-slate-500">
+                                {[c.academic_year, c.class_name]
+                                  .filter(Boolean)
+                                  .join(" · ") || "No year set"}
+                              </p>
+                              {schoolName(c.school_id) && (
+                                <p className="truncate text-xs text-slate-400">
+                                  {schoolName(c.school_id)}
+                                </p>
+                              )}
+                              <form
+                                action={setChildPhoto.bind(null, c.id)}
+                                className="mt-1.5"
+                              >
+                                <label className="cursor-pointer text-[11px] font-bold text-violet-600 hover:underline">
+                                  {photo ? "Change photo" : "Add photo"}
+                                  <input
+                                    type="file"
+                                    name="photo"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="hidden"
+                                  />
+                                </label>
+                                <button
+                                  type="submit"
+                                  className="ml-2 text-[11px] font-bold text-slate-400 hover:text-slate-700"
+                                >
+                                  Save
+                                </button>
+                              </form>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <p className="text-xs text-slate-500">
                         No children added yet.
