@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SiteNav } from "@/components/SiteNav";
+import {
+  PageShell,
+  PageHeading,
+  EmptyState,
+} from "@/components/PageShell";
 
 export const metadata = { title: "My School · EduCircle" };
 
@@ -35,19 +39,14 @@ export default async function MySchoolPage() {
   };
 
   return (
-    <>
-      <SiteNav isSignedIn isAdmin={!!profile?.is_admin} />
-      <main className="bg-[#fbfaff] min-h-screen">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <h1 className="rise text-3xl font-extrabold tracking-tight text-slate-900">
-            My School
-          </h1>
-          <p className="rise rise-1 mt-2 text-slate-600">
-            The school communities you belong to.
-          </p>
+    <PageShell signedIn isAdmin={!!profile?.is_admin}>
+      <PageHeading
+        title="My School"
+        subtitle="The school communities you belong to."
+      />
 
-          {approved.length > 0 && (
-            <div className="mt-8 flex flex-col gap-3">
+      {approved.length > 0 && (
+        <div className="flex flex-col gap-3">
               {approved.map((m, i) => {
                 const school = nameOf(m);
                 return (
@@ -84,37 +83,33 @@ export default async function MySchoolPage() {
             </div>
           )}
 
-          {pending.length > 0 && (
-            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
-              <p className="text-sm font-bold text-amber-900">
-                Waiting for review
-              </p>
-              <ul className="mt-2 flex flex-col gap-1 text-sm text-amber-800">
-                {pending.map((m) => (
-                  <li key={m.school_id}>
-                    {nameOf(m)?.name ?? "A school"} — a moderator is reviewing
-                    your request.
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {approved.length === 0 && pending.length === 0 && (
-            <div className="mt-8 rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center">
-              <p className="text-slate-600">
-                You haven&apos;t joined a school community yet.
-              </p>
-              <Link
-                href="/schools"
-                className="mt-5 inline-block rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
-              >
-                Find your school
-              </Link>
-            </div>
-          )}
+      {pending.length > 0 && (
+        <div className="rise rise-2 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+          <p className="text-sm font-bold text-amber-900">Waiting for review</p>
+          <ul className="mt-2 flex flex-col gap-1 text-sm text-amber-800">
+            {pending.map((m) => (
+              <li key={m.school_id}>
+                {nameOf(m)?.name ?? "A school"} — a moderator is reviewing your
+                request.
+              </li>
+            ))}
+          </ul>
         </div>
-      </main>
-    </>
+      )}
+
+      {approved.length === 0 && pending.length === 0 && (
+        <EmptyState
+          title="You haven't joined a school community yet."
+          action={
+            <Link
+              href="/schools"
+              className="inline-block rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
+            >
+              Find your school
+            </Link>
+          }
+        />
+      )}
+    </PageShell>
   );
 }

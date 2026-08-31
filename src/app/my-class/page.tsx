@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SiteNav } from "@/components/SiteNav";
+import {
+  PageShell,
+  PageHeading,
+  EmptyState,
+} from "@/components/PageShell";
 
 export const metadata = { title: "My Class · EduCircle" };
 
@@ -51,26 +55,23 @@ export default async function MyClassPage() {
   const schoolGroups = (groups ?? []).filter((g) => !g.class_name);
 
   return (
-    <>
-      <SiteNav isSignedIn isAdmin={!!profile?.is_admin} />
-      <main className="min-h-screen bg-[#fbfaff]">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <h1 className="rise text-3xl font-extrabold tracking-tight text-slate-900">
-            My Class
-          </h1>
-          <p className="rise rise-1 mt-2 text-slate-600">
-            {children && children.length > 0
-              ? `Group chats for ${children
-                  .map((c) =>
-                    [c.first_name, c.class_name].filter(Boolean).join(" · "),
-                  )
-                  .filter(Boolean)
-                  .join(", ")}.`
-              : "Class and year-group chats you've joined."}
-          </p>
+    <PageShell signedIn isAdmin={!!profile?.is_admin}>
+      <PageHeading
+        title="My Class"
+        subtitle={
+          children && children.length > 0
+            ? `Group chats for ${children
+                .map((c) =>
+                  [c.first_name, c.class_name].filter(Boolean).join(" · "),
+                )
+                .filter(Boolean)
+                .join(", ")}.`
+            : "Class and year-group chats you've joined."
+        }
+      />
 
-          {classGroups.length + schoolGroups.length > 0 ? (
-            <div className="mt-8 flex flex-col gap-6">
+      {classGroups.length + schoolGroups.length > 0 ? (
+        <div className="flex flex-col gap-6">
               {[
                 { label: "Class groups", list: classGroups },
                 { label: "School-wide groups", list: schoolGroups },
@@ -116,25 +117,21 @@ export default async function MyClassPage() {
                     </div>
                   </section>
                 ))}
-            </div>
-          ) : (
-            <div className="mt-8 rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center">
-              <p className="text-slate-600">
-                You haven&apos;t joined a class group yet.
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Class groups live inside each school&apos;s community.
-              </p>
-              <Link
-                href="/my-school"
-                className="mt-5 inline-block rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
-              >
-                Go to my school
-              </Link>
-            </div>
-          )}
         </div>
-      </main>
-    </>
+      ) : (
+        <EmptyState
+          title="You haven't joined a class group yet."
+          body="Class groups live inside each school's community."
+          action={
+            <Link
+              href="/my-school"
+              className="inline-block rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-700"
+            >
+              Go to my school
+            </Link>
+          }
+        />
+      )}
+    </PageShell>
   );
 }
