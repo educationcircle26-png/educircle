@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SiteNav } from "@/components/SiteNav";
 import { ProfileRail, type RailLink } from "@/components/profile/ProfileRail";
+import { FollowButton } from "@/components/FollowButton";
 import { categoryLabel } from "@/lib/schoolCategories";
 
 export const metadata = { title: "My Profile · EduCircle" };
@@ -12,6 +13,7 @@ const TABS = [
   { value: "questions", label: "My Questions" },
   { value: "answers", label: "My Answers" },
   { value: "saved", label: "Saved Posts" },
+  { value: "following", label: "Following" },
 ] as const;
 
 const MONTH_MS = 30 * 864e5;
@@ -85,6 +87,32 @@ export default async function ProfilePage({
       .select("group_id")
       .eq("user_id", user.id),
   ]);
+
+  // Who this parent follows, and their public display details.
+  const { data: followRows } = await supabase
+    .from("follows")
+    .select("following_id, created_at")
+    .eq("follower_id", user.id)
+    .order("created_at", { ascending: false });
+
+  const followingIds = (followRows ?? []).map((f) => f.following_id);
+
+  const [{ data: followedProfiles }, { data: followedMemberships }] =
+    await Promise.all([
+      followingIds.length
+        ? supabase
+            .from("public_profiles")
+            .select("id, display_name, avatar_url, location")
+            .in("id", followingIds)
+        : Promise.resolve({ data: [] as never[] }),
+      followingIds.length
+        ? supabase
+            .from("school_memberships")
+            .select("user_id, school_id")
+            .in("user_id", followingIds)
+            .eq("status", "approved")
+        : Promise.resolve({ data: [] as { user_id: string; school_id: string }[] }),
+    ]);
 
   const myPostIds = (myPosts ?? []).map((p) => p.id);
   const myCommentIds = (myComments ?? []).map((c) => c.id);
@@ -236,6 +264,12 @@ export default async function ProfilePage({
       label: "Saved Posts",
       count: savedCount,
       icon: "bookmark",
+    },
+    {
+      href: "/profile?tab=following",
+      label: "Following",
+      count: followingIds.length,
+      icon: "heart",
     },
     {
       href: "/profile?tab=questions",
@@ -591,7 +625,58 @@ export default async function ProfilePage({
               </div>
 
               <div className="p-4 sm:p-5">
-                {rows.length > 0 ? (
+                {tab === "following" ? (
+                  followedProfiles && followedProfiles.length > 0 ? (
+                    <div className="flex flex-col divide-y divide-neutral-100">
+                      {followedProfiles.map((f) => {
+                        const theirSchool = (followedMemberships ?? []).find(
+                          (m) => m.user_id === f.id,
+                        );
+                        return (
+                          <div
+                            key={f.id}
+                            className="flex items-center gap-3 py-3.5"
+                          >
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm font-bold text-white">
+                              {(f.display_name ?? "P").charAt(0).toUpperCase()}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-bold text-slate-900">
+                                {f.display_name ?? "A parent"}
+                              </p>
+                              <p className="truncate text-xs text-slate-500">
+                                {schoolName(theirSchool?.school_id ?? null) ??
+                                  f.location ??
+                                  "EduCircle parent"}
+                              </p>
+                            </div>
+                            <FollowButton
+                              targetId={f.id}
+                              viewerId={user.id}
+                              following
+                              returnTo="/profile?tab=following"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-neutral-300 p-10 text-center">
+                      <p className="text-sm text-slate-600">
+                        You aren&apos;t following anyone yet.
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Follow a parent from any question they answered.
+                      </p>
+                      <Link
+                        href="/network"
+                        className="mt-4 inline-block rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-700"
+                      >
+                        Browse questions
+                      </Link>
+                    </div>
+                  )
+                ) : rows.length > 0 ? (
                   <div className="flex flex-col divide-y divide-neutral-100">
                     {rows.map((r) => (
                       <Link
@@ -786,7 +871,50 @@ export default async function ProfilePage({
               </p>
             </section>
 
-            <section className="rise rise-4 rounded-3xl bg-slate-900 p-6 text-white shadow-sm">
+            {followedProfiles && followedProfiles.length > 0 && (
+              <section className="rise rise-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-extrabold text-slate-900">
+                    Parents you follow
+                  </h2>
+                  <Link
+                    href="/profile?tab=following"
+                    className="text-xs font-semibold text-violet-600 hover:underline"
+                  >
+                    View all
+                  </Link>
+                </div>
+                <div className="mt-4 flex flex-col gap-3">
+                  {followedProfiles.slice(0, 3).map((f) => {
+                    const theirSchool = (followedMemberships ?? []).find(
+                      (m) => m.user_id === f.id,
+                    );
+                    return (
+                      <div key={f.id} className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-xs font-bold text-white">
+                          {(f.display_name ?? "P").charAt(0).toUpperCase()}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-slate-900">
+                            {f.display_name ?? "A parent"}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {schoolName(theirSchool?.school_id ?? null) ??
+                              f.location ??
+                              "EduCircle parent"}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                          Following
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            <section className="rise rise-5 rounded-3xl bg-slate-900 p-6 text-white shadow-sm">
               <h2 className="text-base font-extrabold leading-snug">
                 Ask or share anything with parents who understand.
               </h2>

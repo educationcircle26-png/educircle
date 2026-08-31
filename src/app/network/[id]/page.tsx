@@ -7,6 +7,7 @@ import {
   toggleSave,
   votePoll,
 } from "../actions";
+import { FollowButton } from "@/components/FollowButton";
 
 function VerifiedBadge() {
   return (
@@ -151,6 +152,25 @@ export default async function QuestionPage({
     (verifiedMemberships ?? []).map((m) => m.user_id),
   );
 
+  // Which of the people on this page the viewer already follows. Anonymous
+  // authors are excluded — a follow control beside an anonymous post would
+  // hand over the identity it exists to hide.
+  const followable = new Set(
+    [
+      post.is_anonymous ? null : post.author_id,
+      ...(comments ?? []).map((c) => (c.is_anonymous ? null : c.author_id)),
+    ].filter((id): id is string => !!id && id !== user?.id),
+  );
+  const following = new Set<string>();
+  if (user && followable.size > 0) {
+    const { data: edges } = await supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", user.id)
+      .in("following_id", [...followable]);
+    for (const e of edges ?? []) following.add(e.following_id);
+  }
+
   const commentIds = (comments ?? []).map((c) => c.id);
   const voteCounts = new Map<string, number>();
   const myVotes = new Set<string>();
@@ -246,14 +266,23 @@ export default async function QuestionPage({
           )}
         </div>
 
-        <p className="mt-1 flex items-center gap-1 text-xs text-neutral-400">
-          {post.is_anonymous
-            ? "Anonymous parent"
-            : post.author_display_name || "A parent"}
-          {!post.is_anonymous && verifiedIds.has(post.author_id) && (
-            <VerifiedBadge />
-          )}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <p className="flex items-center gap-1 text-xs text-neutral-400">
+            {post.is_anonymous
+              ? "Anonymous parent"
+              : post.author_display_name || "A parent"}
+            {!post.is_anonymous && verifiedIds.has(post.author_id) && (
+              <VerifiedBadge />
+            )}
+          </p>
+          <FollowButton
+            targetId={post.author_id}
+            viewerId={user?.id}
+            isAnonymous={post.is_anonymous}
+            following={following.has(post.author_id)}
+            returnTo={`/network/${id}`}
+          />
+        </div>
         {post.body && (
           <p className="mt-4 whitespace-pre-wrap text-neutral-800">
             {post.body}
@@ -366,6 +395,13 @@ export default async function QuestionPage({
                         comment.author_id === user?.id && (
                           <span>· under review, only visible to you</span>
                         )}
+                      <FollowButton
+                        targetId={comment.author_id}
+                        viewerId={user?.id}
+                        isAnonymous={comment.is_anonymous}
+                        following={following.has(comment.author_id)}
+                        returnTo={`/network/${id}`}
+                      />
                       {user && (
                         <details className="ml-1">
                           <summary className="cursor-pointer list-none text-xs font-bold text-violet-600 hover:text-violet-800">
