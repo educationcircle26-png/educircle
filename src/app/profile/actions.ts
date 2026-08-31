@@ -130,6 +130,101 @@ export async function removeAvatar() {
   redirect("/profile/edit");
 }
 
+export async function updateChild(childId: string, formData: FormData) {
+  const { supabase, user } = await requireUser();
+
+  const { data: child } = await supabase
+    .from("children")
+    .select("photo_path")
+    .eq("id", childId)
+    .eq("parent_id", user.id)
+    .maybeSingle();
+
+  if (!child) redirect("/profile");
+
+  const patch: Record<string, unknown> = {
+    first_name: String(formData.get("first_name") ?? "").trim() || null,
+    school_id: String(formData.get("school_id") ?? "") || null,
+    academic_year: String(formData.get("academic_year") ?? "").trim() || null,
+    class_name: String(formData.get("class_name") ?? "").trim() || null,
+  };
+
+  const image = checkImage(formData.get("photo"));
+  if (image.ok) {
+    const path = `${user.id}/${crypto.randomUUID()}.${image.ext}`;
+    const { error } = await supabase.storage
+      .from("child-photos")
+      .upload(path, image.file, { contentType: image.file.type });
+    if (error) redirect(`/profile/children/${childId}?error=upload_failed`);
+    patch.photo_path = path;
+  } else if (image.reason !== "no_file") {
+    redirect(`/profile/children/${childId}?error=${image.reason}`);
+  }
+
+  await supabase
+    .from("children")
+    .update(patch)
+    .eq("id", childId)
+    .eq("parent_id", user.id);
+
+  if (patch.photo_path && child.photo_path) {
+    await supabase.storage.from("child-photos").remove([child.photo_path]);
+  }
+
+  redirect("/profile");
+}
+
+export async function removeChildPhoto(childId: string) {
+  const { supabase, user } = await requireUser();
+
+  const { data: child } = await supabase
+    .from("children")
+    .select("photo_path")
+    .eq("id", childId)
+    .eq("parent_id", user.id)
+    .maybeSingle();
+
+  if (!child) redirect("/profile");
+
+  await supabase
+    .from("children")
+    .update({ photo_path: null })
+    .eq("id", childId)
+    .eq("parent_id", user.id);
+
+  if (child.photo_path) {
+    await supabase.storage.from("child-photos").remove([child.photo_path]);
+  }
+
+  redirect(`/profile/children/${childId}`);
+}
+
+export async function deleteChild(childId: string) {
+  const { supabase, user } = await requireUser();
+
+  const { data: child } = await supabase
+    .from("children")
+    .select("photo_path")
+    .eq("id", childId)
+    .eq("parent_id", user.id)
+    .maybeSingle();
+
+  if (!child) redirect("/profile");
+
+  await supabase
+    .from("children")
+    .delete()
+    .eq("id", childId)
+    .eq("parent_id", user.id);
+
+  // The row is gone, so nothing references the file any more.
+  if (child.photo_path) {
+    await supabase.storage.from("child-photos").remove([child.photo_path]);
+  }
+
+  redirect("/profile");
+}
+
 export async function setChildPhoto(childId: string, formData: FormData) {
   const { supabase, user } = await requireUser();
 

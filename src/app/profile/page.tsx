@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { SiteNav } from "@/components/SiteNav";
 import { ProfileRail, type RailLink } from "@/components/profile/ProfileRail";
 import { FollowButton } from "@/components/FollowButton";
-import { setChildPhoto } from "./actions";
 import { categoryLabel } from "@/lib/schoolCategories";
 
 export const metadata = { title: "My Profile · EduCircle" };
@@ -590,26 +589,12 @@ export default async function ProfilePage({
                                   {schoolName(c.school_id)}
                                 </p>
                               )}
-                              <form
-                                action={setChildPhoto.bind(null, c.id)}
-                                className="mt-1.5"
+                              <Link
+                                href={`/profile/children/${c.id}`}
+                                className="mt-1 inline-block text-[11px] font-bold text-violet-600 hover:underline"
                               >
-                                <label className="cursor-pointer text-[11px] font-bold text-violet-600 hover:underline">
-                                  {photo ? "Change photo" : "Add photo"}
-                                  <input
-                                    type="file"
-                                    name="photo"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    className="hidden"
-                                  />
-                                </label>
-                                <button
-                                  type="submit"
-                                  className="ml-2 text-[11px] font-bold text-slate-400 hover:text-slate-700"
-                                >
-                                  Save
-                                </button>
-                              </form>
+                                Edit details &amp; photo
+                              </Link>
                             </div>
                           </div>
                         );

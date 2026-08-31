@@ -7,6 +7,7 @@ import {
   EmptyState,
 } from "@/components/PageShell";
 import { PostActions } from "@/components/PostActions";
+import { Avatar } from "@/components/Avatar";
 import { categoryLabel } from "@/lib/schoolCategories";
 
 export const metadata = { title: "Questions · EduCircle" };
@@ -47,7 +48,7 @@ export default async function NetworkPage({
   const { data: posts } = await supabase
     .from("posts_with_author")
     .select(
-      "id, title, body, type, tags, created_at, is_anonymous, author_display_name, school_id",
+      "id, title, body, type, tags, created_at, is_anonymous, author_display_name, author_avatar_url, school_id",
     )
     .is("school_id", null)
     .eq("status", "published")
@@ -205,18 +206,13 @@ export default async function NetworkPage({
                   key={post.id}
                   className={`rise rise-${Math.min(i + 1, 6)} group -mx-2 flex gap-4 rounded-2xl px-2 py-4 transition hover:bg-neutral-50`}
                 >
-                  <Link
-                    href={`/network/${post.id}`}
-                    aria-hidden
-                    tabIndex={-1}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-sm font-bold text-white"
-                  >
-                    {(post.is_anonymous
-                      ? "?"
-                      : (post.author_display_name ?? "P")
-                    )
-                      .charAt(0)
-                      .toUpperCase()}
+                  <Link href={`/network/${post.id}`} aria-hidden tabIndex={-1}>
+                    <Avatar
+                      name={post.author_display_name}
+                      url={post.author_avatar_url}
+                      anonymous={post.is_anonymous}
+                      size={40}
+                    />
                   </Link>
 
                   <div className="min-w-0 flex-1">

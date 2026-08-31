@@ -8,6 +8,7 @@ import {
   votePoll,
 } from "../actions";
 import { FollowButton } from "@/components/FollowButton";
+import { Avatar } from "@/components/Avatar";
 
 function VerifiedBadge() {
   return (
@@ -92,7 +93,7 @@ export default async function QuestionPage({
   const { data: post } = await supabase
     .from("posts_with_author")
     .select(
-      "id, title, body, type, metadata, created_at, is_anonymous, author_display_name, author_id, status",
+      "id, title, body, type, metadata, created_at, is_anonymous, author_display_name, author_avatar_url, author_id, status",
     )
     .eq("id", id)
     .single();
@@ -134,7 +135,7 @@ export default async function QuestionPage({
   const { data: comments } = await supabase
     .from("comments_with_author")
     .select(
-      "id, body, created_at, is_anonymous, author_display_name, author_id, status, parent_comment_id",
+      "id, body, created_at, is_anonymous, author_display_name, author_avatar_url, author_id, status, parent_comment_id",
     )
     .eq("post_id", id)
     .order("created_at", { ascending: true });
@@ -266,8 +267,14 @@ export default async function QuestionPage({
           )}
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <p className="flex items-center gap-1 text-xs text-neutral-400">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Avatar
+            name={post.author_display_name}
+            url={post.author_avatar_url}
+            anonymous={post.is_anonymous}
+            size={32}
+          />
+          <p className="flex items-center gap-1 text-xs text-neutral-500">
             {post.is_anonymous
               ? "Anonymous parent"
               : post.author_display_name || "A parent"}
@@ -381,6 +388,12 @@ export default async function QuestionPage({
                       {comment.body}
                     </p>
                     <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400">
+                      <Avatar
+                        name={comment.author_display_name}
+                        url={comment.author_avatar_url}
+                        anonymous={comment.is_anonymous}
+                        size={24}
+                      />
                       <span className="font-semibold text-neutral-700">
                         {comment.is_anonymous
                           ? "Anonymous parent"

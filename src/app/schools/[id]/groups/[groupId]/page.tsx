@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { currentUser } from "@/lib/currentUser";
 import { PageShell, PageHeading, Card } from "@/components/PageShell";
+import { Avatar } from "@/components/Avatar";
 import { leaveGroup, sendMessage } from "../actions";
 
 export default async function GroupChatPage({
@@ -36,7 +37,9 @@ export default async function GroupChatPage({
   const [{ data: messages }, { count: memberCount }] = await Promise.all([
     supabase
       .from("chat_messages_with_author")
-      .select("id, body, created_at, author_id, author_display_name, status")
+      .select(
+        "id, body, created_at, author_id, author_display_name, author_avatar_url, status",
+      )
       .eq("group_id", groupId)
       .order("created_at", { ascending: true })
       .limit(200),
@@ -76,8 +79,15 @@ export default async function GroupChatPage({
               return (
                 <div
                   key={message.id}
-                  className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                  className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"}`}
                 >
+                  {!mine && (
+                    <Avatar
+                      name={message.author_display_name}
+                      url={message.author_avatar_url}
+                      size={32}
+                    />
+                  )}
                   <div
                     className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
                       mine
